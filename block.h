@@ -24,5 +24,7 @@ blk_t *blk_alloc(void);
 void blk_free(blk_t *blk);
 
 int init_blkqueue(blkqueue_t queue);
+int put_blk(blkqueue_t queue, blk_t *blk);
+int get_blk(blkqueue_t queue, blk_t **blk);
 
 #endif /* NCP_BLOCK_H */

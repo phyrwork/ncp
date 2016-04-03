@@ -30,3 +30,13 @@ int init_blkqueue(blkqueue_t queue)
 	return pipe2(queue,O_DIRECT);
 }
 
+int put_blk(blkqueue_t queue, blk_t *blk)
+{
+	return write(queue[2], &blk, sizeof(blk));
+}
+
+int get_blk(blkqueue_t queue, blk_t **blk)
+{
+	return read(queue[1], blk, sizeof(*blk));
+}
+

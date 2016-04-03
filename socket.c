@@ -31,7 +31,7 @@ int sock_in(unsigned short port)
 
   	listen(sock,1);
 
-  	sock = accept(sock, (struct sockaddr *)NULL, (int *)NULL);
+  	sock = accept(sock, (struct sockaddr *)NULL, NULL);
   	if(sock == -1) return -1;
   	else return sock;
 }
@@ -59,7 +59,7 @@ int sock_send(int sock, const char *buf, size_t len)
 		sock, // sd
 		(void *)buf, // msg
 		len, // len
-        (struct sockaddr_in *) NULL, // to
+        (struct sockaddr *) NULL, // to
         0, // tolen
         0, // ppid
         0, // flags
@@ -78,7 +78,7 @@ int sock_recv(int sock, const char *buf, size_t len)
 		sock, //sd
 		(void *)buf, // msg
 		len, // len
-		(struct sockaddr_in *) NULL, // from
+		(struct sockaddr *) NULL, // from
 		0, // fromlen
 		&sndrcvinfo, // sinfo
 		&flags // msg_flags
@@ -87,5 +87,5 @@ int sock_recv(int sock, const char *buf, size_t len)
 
 int sock_close(int sock)
 {
-	close(sock);
+	return close(sock);
 }
