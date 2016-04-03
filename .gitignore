@@ -30,6 +30,9 @@
 
 # Debug files
 *.dSYM/
+Debug/*
 
-# Component test directory
-test/*
+# Project files
+.cproject
+.project
+>>>>>>> Stashed changes
