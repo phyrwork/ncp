@@ -9,17 +9,17 @@ typedef enum {
 	EPIPE,
 	ESPLIT,
 	EJOIN
-} event_type_t;
+} event_id_t;
 
 typedef struct {
 	thread_t thread;
-	event_type_t event;
+	event_id_t id;
 } event_t;
 
 typedef int events_t[2];
 
-int init_events(events_t fd);
-int put_event(events_t fd, event_t event);
-int get_event(events_t fd, event_t *event);
+int init_events(void);
+int put_event(thread_t thread, event_id_t id);
+int get_event(event_t *event);
 
 #endif

@@ -1,17 +1,23 @@
 #include "event.h"
 #include "pipe.h"
 
-int init_events(events_t fd)
+events_t events;
+
+int init_events(void)
 {
-	return pipe2(fd,O_DIRECT);
+	return pipe2(events,O_DIRECT);
 }
 
-int put_event(events_t fd, event_t event)
+int put_event(thread_t thread, event_id_t id)
 {
-	return write(fd[2],(void *) &event, sizeof(event));
+	event_t event;
+	event.thread = thread;
+	event.id = id;
+
+	return write(events[1],(void *) &event, sizeof(event));
 }
 
-int get_event(events_t fd, event_t *event)
+int get_event(event_t *event)
 {
-	return read(fd[1],(void *) event, sizeof(*event));
+	return read(events[0],(void *) event, sizeof(*event));
 }
