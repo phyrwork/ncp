@@ -8,7 +8,8 @@ typedef enum {
 	ESOCK,
 	EPIPE,
 	ESPLIT,
-	EJOIN
+	EJOIN,
+	EMALLOC
 } event_id_t;
 
 typedef struct {

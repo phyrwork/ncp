@@ -1,6 +1,6 @@
 #ifndef NCP_SPLIT_H
 #define NCP_SPLIT_H
 
-void start_split();
+int start_split(void);
 
 #endif /* NCP_SPLIT_H */

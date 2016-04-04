@@ -32,7 +32,26 @@ void in_main(void *arg)
 
 void out_main(void *arg)
 {
+	/* initialize thread */
+	stream_ctrl_t *ctrl = (stream_ctrl_t*) arg;
 
+	/* initialize socket */
+	//
+
+	/* read blocks from queue */
+	int rc;
+	blk_t *blk;
+	while((rc = get_blk(ctrl->queue,&blk)) > 0)
+	{
+		/* write data to socket */
+
+		//debug
+		fprintf(stderr,"Output block ssn: %d, len: %d, data: %s\n",blk->ssn,blk->len,blk->data);
+	}
+
+	/* deinitialize thread */
+	free(ctrl);
+	pthread_exit(NULL);
 }
 
 int start_in(blkqueue_t queue, unsigned short port)
@@ -54,16 +73,17 @@ int start_in(blkqueue_t queue, unsigned short port)
 
 int start_out(blkqueue_t queue, unsigned long addr, unsigned short port)
 {
-	stream_ctrl_t ctrl;
-	ctrl.thread.type = TSTREAMI;
+	stream_ctrl_t *ctrl = malloc(sizeof(*ctrl)); // create persistent memory to pass to thread
+	ctrl->thread.type = TSTREAMO;
 
 	/* copy target socket */
-	ctrl.addr = addr;
-	ctrl.port = port;
+	ctrl->addr = addr;
+	ctrl->port = port;
 
-	/* duplicate write-end file descriptor */
-	memcpy(queue,ctrl.queue,sizeof(ctrl.queue));
-	ctrl.queue[1] = dup(ctrl.queue[1]);
+	/* duplicate read-end file descriptor */
+	ctrl->queue[0] = queue[0];
+	ctrl->queue[1] = queue[1];
+	ctrl->queue[0] = dup(ctrl->queue[0]);
 
-	return pthread_create(&ctrl.thread.id,NULL,out_main,(void *)&ctrl);
+	return pthread_create(&ctrl->thread.id,NULL,out_main,(void *)ctrl);
 }

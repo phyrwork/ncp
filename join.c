@@ -20,14 +20,7 @@ typedef struct blk_node_s blk_node_t;
 
 SLIST_HEAD(blk_cache_t,blk_node_s) blk_cache = SLIST_HEAD_INITIALIZER(blk_cache);
 
-ssn_t ssn_next = 0; // ssn of next block to write to stdout
-
-int outfd;
-int output_blk(blk_t *blk)
-{
-	write(STDOUT_FILENO,blk->data,blk->len);
-	return 0;
-}
+static ssn_t ssn_next = 0; // ssn of next block to write to stdout
 
 void join_main(void *arg)
 {
@@ -40,37 +33,37 @@ void join_main(void *arg)
 
 	/* initialize in-stream threads */
 	for(int n=0;n<4;++n) start_in(queue,8024+n);
-	//close(queue[1]); // close write-end of pipe to leave threads as only remaining write-ends
+	close(queue[1]); // close write-end of pipe to leave threads as only remaining write-ends
 
 	// debug - write some unordered test data
-	fprintf(stderr,"Writing some test data...\n");
-	blk_t *test_blk;
-
-	test_blk = blk_alloc();
-	test_blk->ssn = 3;
-	strncpy(test_blk->data,"sequence 3",10);
-	test_blk->len = strnlen(test_blk->data);
-	put_blk(queue,test_blk);
-
-	test_blk = blk_alloc();
-	test_blk->ssn = 0;
-	strncpy(test_blk->data,"sequence 0",10);
-	test_blk->len = strnlen(test_blk->data);
-	put_blk(queue,test_blk);
-
-	test_blk = blk_alloc();
-	test_blk->ssn = 1;
-	strncpy(test_blk->data,"sequence 1",10);
-	test_blk->len = strnlen(test_blk->data);
-	put_blk(queue,test_blk);
-
-	test_blk = blk_alloc();
-	test_blk->ssn = 2;
-	strncpy(test_blk->data,"sequence 2",10);
-	test_blk->len = strnlen(test_blk->data);
-	put_blk(queue,test_blk);
-
-	close(queue[1]);
+//	fprintf(stderr,"Writing some test data...\n");
+//	blk_t *test_blk;
+//
+//	test_blk = blk_alloc();
+//	test_blk->ssn = 3;
+//	strncpy(test_blk->data,"sequence 3",10);
+//	test_blk->len = strnlen(test_blk->data);
+//	put_blk(queue,test_blk);
+//
+//	test_blk = blk_alloc();
+//	test_blk->ssn = 0;
+//	strncpy(test_blk->data,"sequence 0",10);
+//	test_blk->len = strnlen(test_blk->data);
+//	put_blk(queue,test_blk);
+//
+//	test_blk = blk_alloc();
+//	test_blk->ssn = 1;
+//	strncpy(test_blk->data,"sequence 1",10);
+//	test_blk->len = strnlen(test_blk->data);
+//	put_blk(queue,test_blk);
+//
+//	test_blk = blk_alloc();
+//	test_blk->ssn = 2;
+//	strncpy(test_blk->data,"sequence 2",10);
+//	test_blk->len = strnlen(test_blk->data);
+//	put_blk(queue,test_blk);
+//
+//	close(queue[1]);
 //	printf("...done!\n");
 	////////
 
@@ -117,7 +110,7 @@ void join_main(void *arg)
 			blk_node_t *node = SLIST_FIRST(&blk_cache);
 
 			/* output the block */
-			output_blk(node->blk);
+			write(STDOUT_FILENO,blk->data,blk->len);
 			++ssn_next; // advance sequence number
 
 			/* free block resources */
