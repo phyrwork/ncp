@@ -1,14 +1,7 @@
-#include "event.h"
-#include <string.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <netdb.h>
-#include "socket.h"
-#include "block.h"
-#include "ncp.h"
 #include "recv.h"
 #include "send.h"
+#include <stdio.h>
+#include <string.h>
 
 typedef enum {
 	SEND,

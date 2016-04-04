@@ -25,18 +25,38 @@ void blk_free(blk_t *blk)
 	free(blk);
 }
 
-int init_blkqueue(blkqueue_t queue)
+int init_blkq(blkq_t *queue)
 {
-	return pipe2(queue,O_DIRECT);
+	return pipe2(queue->fd,O_DIRECT);
 }
 
-int put_blk(blkqueue_t queue, blk_t *blk)
+blkq_t copy_blkq(blkq_t queue, blkq_mode_t mode)
 {
-	return write(queue[1], &blk, sizeof(blk));
+	/* duplicate both ends */
+	blkq_t copy;
+	copy.fd[0] = dup(queue.fd[0]);
+	copy.fd[1] = dup(queue.fd[1]);
+
+	switch(mode)
+	{
+	case READ:
+		close(copy.fd[1]); // close the write end to ensure no writes
+		break;
+	case WRITE:
+		close(copy.fd[0]); // close the read end to ensure no reads
+		break;
+	}
+
+	return copy;
 }
 
-int get_blk(blkqueue_t queue, blk_t **blk)
+int put_blk(blkq_t queue, blk_t *blk)
 {
-	return read(queue[0], blk, sizeof(*blk));
+	return write(queue.fd[1], &blk, sizeof(blk));
+}
+
+int get_blk(blkq_t queue, blk_t **blk)
+{
+	return read(queue.fd[0], blk, sizeof(*blk));
 }
 

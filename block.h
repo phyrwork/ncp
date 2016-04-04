@@ -18,13 +18,21 @@ typedef struct {
 	uint8_t *data;
 } blk_t;
 
-typedef int blkqueue_t[2];
+typedef struct {
+	int fd[2];
+} blkq_t;
+
+typedef enum {
+	READ,
+	WRITE
+} blkq_mode_t;
 
 blk_t *blk_alloc(void);
 void blk_free(blk_t *blk);
 
-int init_blkqueue(blkqueue_t queue);
-int put_blk(blkqueue_t queue, blk_t *blk);
-int get_blk(blkqueue_t queue, blk_t **blk);
+int init_blkq(blkq_t *queue);
+blkq_t copy_blkq(blkq_t queue, blkq_mode_t mode);
+int put_blk(blkq_t queue, blk_t *blk);
+int get_blk(blkq_t queue, blk_t **blk);
 
 #endif /* NCP_BLOCK_H */

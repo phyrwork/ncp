@@ -17,10 +17,8 @@ typedef struct {
 	event_id_t id;
 } event_t;
 
-typedef int events_t[2];
-
 int init_events(void);
-int put_event(thread_t thread, event_id_t id);
-int get_event(event_t *event);
+int notify(thread_t thread, event_id_t event);
+int monitor(void);
 
 #endif
