@@ -56,7 +56,7 @@ void split_main(void *arg)
 	pthread_exit(NULL);
 }
 
-int start_split(void)
+int start_split(ncp_opt_t *opt, unsigned long addr)
 {
 	split_ctrl_t *ctrl = malloc(sizeof(*ctrl));
 	ctrl->thread.type = TSPLIT;

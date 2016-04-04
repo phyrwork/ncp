@@ -3,13 +3,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif /* _GNU_SOURCE */
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/sctp.h>
 #include <arpa/inet.h>
 
-int sock_in(unsigned short port)
+int sock_in_reservep(unsigned short port)
 {
 	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
 	if(sock == -1) return -1;
@@ -23,17 +26,30 @@ int sock_in(unsigned short port)
 	int rc = bind(sock, (struct sockaddr *) &server, sizeof(server));
 	if(rc == -1) return -1;
 
+	return sock;
+}
+
+int sock_in_complete(int sock)
+{
 	struct sctp_initmsg initmsg;
-	bzero((void *)&server, sizeof(server));
+	bzero((void *)&initmsg, sizeof(initmsg));
 	initmsg.sinit_num_ostreams = 1;
-  	initmsg.sinit_max_instreams = 1;
-  	rc = setsockopt(sock, IPPROTO_SCTP, SCTP_INITMSG, &initmsg, sizeof(initmsg));
+	initmsg.sinit_max_instreams = 1;
+	int rc = setsockopt(sock, IPPROTO_SCTP, SCTP_INITMSG, &initmsg, sizeof(initmsg));
 
-  	listen(sock,1);
+	listen(sock,1);
 
-  	sock = accept(sock, (struct sockaddr *)NULL, NULL);
-  	if(sock == -1) return -1;
-  	else return sock;
+	sock = accept(sock, (struct sockaddr *)NULL, NULL);
+	if(sock == -1) return -1;
+	else return sock;
+}
+
+int sock_in(unsigned short port)
+{
+	int sock = sock_in_reservep(port);
+	if(sock == -1) return -1;
+
+	return sock_in_complete(sock);
 }
 
 int sock_out(unsigned long long addr, unsigned short port)

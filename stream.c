@@ -19,6 +19,9 @@ void in_main(void *arg)
 	/* initialize thread */
 	stream_ctrl_t *ctrl = (stream_ctrl_t*) arg;
 
+	/* initialize socket */
+
+
 	/* close pipe */
 	sleep(3);
 	fprintf(stderr,"Closing pipe @ fd=%d...\n",ctrl->queue[1]);

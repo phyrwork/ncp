@@ -10,6 +10,8 @@
 
 typedef struct {
 	thread_t thread;
+	unsigned char num_sockets;
+	int *socket;
 } join_ctrl_t;
 
 struct blk_node_s{
@@ -32,41 +34,10 @@ void join_main(void *arg)
 	init_blkqueue(queue);
 
 	/* initialize in-stream threads */
-	for(int n=0;n<4;++n) start_in(queue,8024+n);
+	fprintf(stderr,"Initializing in streams...\n");
+
+	for(int n=0; n<4; ++n) start_in(queue,NULL);
 	close(queue[1]); // close write-end of pipe to leave threads as only remaining write-ends
-
-	// debug - write some unordered test data
-//	fprintf(stderr,"Writing some test data...\n");
-//	blk_t *test_blk;
-//
-//	test_blk = blk_alloc();
-//	test_blk->ssn = 3;
-//	strncpy(test_blk->data,"sequence 3",10);
-//	test_blk->len = strnlen(test_blk->data);
-//	put_blk(queue,test_blk);
-//
-//	test_blk = blk_alloc();
-//	test_blk->ssn = 0;
-//	strncpy(test_blk->data,"sequence 0",10);
-//	test_blk->len = strnlen(test_blk->data);
-//	put_blk(queue,test_blk);
-//
-//	test_blk = blk_alloc();
-//	test_blk->ssn = 1;
-//	strncpy(test_blk->data,"sequence 1",10);
-//	test_blk->len = strnlen(test_blk->data);
-//	put_blk(queue,test_blk);
-//
-//	test_blk = blk_alloc();
-//	test_blk->ssn = 2;
-//	strncpy(test_blk->data,"sequence 2",10);
-//	test_blk->len = strnlen(test_blk->data);
-//	put_blk(queue,test_blk);
-//
-//	close(queue[1]);
-//	printf("...done!\n");
-	////////
-
 
 	/* fetch and output blocks in order */
 	int rc;
@@ -146,7 +117,7 @@ void join_main(void *arg)
 	pthread_exit(NULL);
 }
 
-int start_join(void)
+int start_join(ncp_opt_t *opt)
 {
 	join_ctrl_t *ctrl = malloc(sizeof(*ctrl));
 	ctrl->thread.type = TJOIN;
