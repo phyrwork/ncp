@@ -1,17 +1,42 @@
 #include "event.h"
 #include "join.h"
 #include "split.h"
+#include <string.h>
 #include <errno.h>
 #include <stdio.h>
+
+typedef enum {
+	SEND,
+	RECV
+} ncp_mode_t;
 
 int ncp_send();
 int ncp_recv();
 
-int main(void)
+int main(int argc, char *argv[])
 {
+	/* parse arguments */
+	ncp_mode_t mode;
+	     if(!strcmp(argv[1],"send")) mode = SEND;
+	else if(!strcmp(argv[1],"recv")) mode = RECV;
+	else
+	{
+		fprintf(stderr,"Mode '%s', not recognised.",argv[1]);
+	}
+
+	/* initialize events */
 	int rc = init_events();
 
-	ncp_send();
+	/* begin send/recv */
+	switch(mode)
+	{
+	case SEND:
+		ncp_send();
+		break;
+	case RECV:
+		ncp_recv();
+		break;
+	}
 
 	return 0;
 }
