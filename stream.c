@@ -20,10 +20,10 @@ void in_main(void *arg)
 	stream_ctrl_t *ctrl = (stream_ctrl_t*) arg;
 
 	/* close pipe */
-	sleep(1);
-	printf("Closing pipe @ fd=%d...\n",ctrl->queue[1]);
-	int rc = close(ctrl->queue[1]);
-	if(rc == 0) printf("Closed successfully!\n");
+//	sleep(1);
+//	printf("Closing pipe @ fd=%d...\n",ctrl->queue[1]);
+//	int rc = close(ctrl->queue[1]);
+//	if(rc == 0) printf("Closed successfully!\n");
 
 	/* deinitialize thread */
 	free(ctrl);
@@ -48,7 +48,6 @@ int start_in(blkqueue_t queue, unsigned short port)
 	ctrl->queue[0] = queue[0];
 	ctrl->queue[1] = queue[1];
 	ctrl->queue[1] = dup(ctrl->queue[1]);
-	printf("Duplicating pipe @ fd=%d to fd=%d\n",queue[1],ctrl->queue[1]);
 
 	return pthread_create(&ctrl->thread.id,NULL,in_main,(void *)ctrl);
 }
