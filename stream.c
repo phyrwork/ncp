@@ -20,10 +20,10 @@ void in_main(void *arg)
 	stream_ctrl_t *ctrl = (stream_ctrl_t*) arg;
 
 	/* close pipe */
-//	sleep(1);
-//	printf("Closing pipe @ fd=%d...\n",ctrl->queue[1]);
-//	int rc = close(ctrl->queue[1]);
-//	if(rc == 0) printf("Closed successfully!\n");
+	sleep(3);
+	fprintf(stderr,"Closing pipe @ fd=%d...\n",ctrl->queue[1]);
+	int rc = close(ctrl->queue[1]);
+	if(rc == 0) fprintf(stderr,"Closed successfully!\n");
 
 	/* deinitialize thread */
 	free(ctrl);
