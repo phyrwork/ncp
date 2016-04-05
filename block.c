@@ -1,6 +1,7 @@
 #include "block.h"
 #include "pipe.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 blk_t *blk_alloc(void)
 {
@@ -21,8 +22,11 @@ blk_t *blk_alloc(void)
 
 void blk_free(blk_t *blk)
 {
+	fprintf(stderr,"blk_free(): Starting block release...\n");
 	free(blk->data);
+	fprintf(stderr,"blk_free(): Released block data.\n");
 	free(blk);
+	fprintf(stderr,"blk_free(): Released block structure.\n");
 }
 
 int init_blkq(blkq_t *queue)

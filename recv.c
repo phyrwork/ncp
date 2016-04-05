@@ -85,7 +85,11 @@ void join(void *arg)
 	fprintf(stderr,"Join: Waiting for data.\n");
 	while((rc = get_blk(ctrl->queue,&blk)) > 0)
 	{
+		fprintf(stderr,"Join: Block received (ssn:%u)\n",blk->ssn);
+
 		/* add to block list in ordered position */
+		fprintf(stderr,"Join: Adding block to cache.\n");
+
 		blk_node_t *new_node = malloc(sizeof(blk_node_t)); // allocate new node
 		new_node->blk = blk; // associate block with node
 
@@ -109,20 +113,24 @@ void join(void *arg)
 
 
 		/* write out any appropriate blocks */
+		fprintf(stderr,"Join: Looking for blocks to write.\n");
 		while(!SLIST_EMPTY(&blk_cache) && SLIST_FIRST(&blk_cache)->blk->ssn == ssn_next)
 		{
 			blk_node_t *node = SLIST_FIRST(&blk_cache);
 
 			/* output the block */
 			write(STDOUT_FILENO,blk->data,blk->len);
+			fprintf(stderr,"Join: Wrote out a block (ssn:%u)\n",blk->ssn);
 			++ssn_next; // advance sequence number
 
 			/* free block resources */
 			blk_free(node->blk);
+			fprintf(stderr,"Join: Released block resources.\n");
 
 			/* remove block from list */
 			SLIST_REMOVE_HEAD(&blk_cache,node);
 			free(node); // free node resources
+			fprintf(stderr,"Join: Released node resources.\n");
 		}
 	}
 
