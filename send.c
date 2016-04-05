@@ -7,7 +7,7 @@
 #include "socket.h"
 
 #include <stdlib.h>
-//#include <stdio.h>
+#include <stdio.h>
 //#include <errno.h>
 //#include <netdb.h>
 
@@ -127,35 +127,27 @@ int ncp_send(int argc, char *argv[])
 	close(blkq.fd[0]);
 	close(blkq.fd[1]); // close original block queue descriptors to leave copies as only open ones
 
+	event_t event;
+	while(wait_notify(&event) > 0)
+	{
+		switch(event.id)
+		{
+		case OK:
+			fprintf(stderr,"Send completed successfully!\n");
+			break;
+
+		case EPIPE:
+			fprintf(stderr,"Send failed: Pipe error!\n");
+			break;
+
+		case ESOCK:
+			fprintf(stderr,"Send failed: Socket error!\n");
+			break;
+
+		default:
+			break;
+		}
+	}
+
 	return 0;
 }
-
-//int ncp_send(int argc, char *argv[])
-//{
-//	/* initialize events */
-//	int rc = init_events();
-//
-//	/* wait for event */
-//	fprintf(stderr,"Waiting for events...\n");
-//	event_t event;
-//	int loop = 1;
-//	while(loop && (rc = get_event(&event)) > 0)
-//	{
-//		switch(event.id)
-//		{
-//			case OK:
-//				loop = 0;
-//				break;
-//			case ESOCK:
-//				loop = 0;
-//				break;
-//			default:
-//				break;
-//		}
-//	}
-//	if(rc > 0) fprintf(stderr,"Breaking event: %d\n",event.id);
-//	else if(rc < 0) fprintf(stderr,"get_event() errno: %d\n",errno);
-//	else fprintf(stderr,"get_event(): EOF.\n");
-//
-//	return 0;
-//}

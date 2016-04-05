@@ -19,6 +19,6 @@ typedef struct {
 
 int init_events(void);
 int notify(thread_t thread, event_id_t event);
-int monitor(void);
+int wait_notify(event_t *event);
 
 #endif

@@ -10,24 +10,24 @@ int init_events(void)
 
 int notify(thread_t thread, event_id_t event)
 {
-	return 0;
+	event_t e;
+	e.thread = thread;
+	e.id = event;
+
+	return write(events[1],(void *) &e, sizeof(e));
 }
 
-int monitor(void)
+int wait_notify(event_t *event)
 {
-	return 0;
+	return read(events[0],(void *) event, sizeof(*event));
 }
 
 //int put_event(thread_t thread, event_id_t id)
 //{
-//	event_t event;
-//	event.thread = thread;
-//	event.id = id;
-//
-//	return write(events[1],(void *) &event, sizeof(event));
+
 //}
 //
 //int get_event(event_t *event)
 //{
-//	return read(events[0],(void *) event, sizeof(*event));
+//
 //}
