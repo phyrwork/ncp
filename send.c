@@ -3,7 +3,7 @@
 #include "block.h"
 #include "config.h"
 #include "pipe.h"
-//#include "event.h"
+#include "event.h"
 
 #include <stdlib.h>
 //#include <stdio.h>
@@ -48,82 +48,49 @@ void out_stream(void *arg)
 //	free(ctrl);
 //	pthread_exit(NULL);
 //}
-//
-//int start_out(blkqueue_t queue, unsigned long addr, unsigned short port)
-//{
-//	stream_ctrl_t *ctrl = malloc(sizeof(*ctrl)); // create persistent memory to pass to thread
-//	ctrl->thread.type = TSTREAMO;
-//
-//	/* copy target socket */
-//	ctrl->addr = addr;
-//	ctrl->port = port;
-//
-//	/* duplicate read-end file descriptor */
-//	ctrl->queue[0] = queue[0];
-//	ctrl->queue[1] = queue[1];
-//	ctrl->queue[0] = dup(ctrl->queue[0]);
-//
-//	return pthread_create(&ctrl->thread.id,NULL,out_main,(void *)ctrl);
-//}
 
 void split(void *arg)
 {
+	/* get control structure */
+	split_ctrl_t *ctrl = (split_ctrl_t *) arg;
 
+
+	/* get stdin in blocks and add to block queue */
+	int rc;
+	static ssn_t ssn_next = 0;
+	blk_t *blk = blk_alloc();
+
+	while((rc = read(STDIN_FILENO,blk->data,BLEN_DEFAULT)) > 0)
+	{
+		blk->ssn = ssn_next++;
+		blk->len = rc;
+		put_blk(ctrl->queue,blk);
+	}
+
+
+	/* examine reason for pipe close */
+	switch(rc)
+	{
+	case 0:
+		notify(ctrl->thread,OK);
+		break;
+	default:
+		notify(ctrl->thread,EPIPE);
+		break;
+	}
+
+
+	/* deinitialize thread */
+	free(ctrl);
+	pthread_exit(NULL);
 }
-
-//void split_main(void *arg)
-//{
-//	/* initialize thread */
-//	split_ctrl_t *ctrl = (split_ctrl_t *) arg;
-//
-//	/* initialize queue */
-//	blkqueue_t queue;
-//	init_blkqueue(queue);
-//
-//	/* initialize out-stream threads */
-//	for(int n=0;n<4;++n) start_out(queue,ntohl(inet_addr("127.0.0.1")),8024+n);
-//
-//	/* get stdin in blocks and add to block queue */
-//	int rc;
-//	blk_t *blk = blk_alloc();
-//	fprintf(stderr,"Waiting for stdin...\n");
-//	while((rc = read(STDIN_FILENO,blk->data,BLEN_DEFAULT)) > 0)
-//	{
-//		blk->ssn = ssn_next++;
-//		blk->len = rc;
-//		put_blk(queue,blk);
-//
-//		fprintf(stderr,"Queueing new block ssn: %d, len: %d, data: ",blk->ssn,blk->len);
-//		write(STDERR_FILENO,blk->data,blk->len);
-//		fprintf(stderr,"\n");
-//	}
-//
-//	/* examine reason for pipe close */
-//	switch(rc)
-//	{
-//	case 0:
-//		put_event(ctrl->thread,OK);
-//		break;
-//	default:
-//		put_event(ctrl->thread,EPIPE);
-//		break;
-//	}
-//
-//	/* deinitialize thread */
-//	free(ctrl);
-//	pthread_exit(NULL);
-//}
-//
-//int start_split(ncp_opt_t *opt, unsigned long addr)
-//{
-//	split_ctrl_t *ctrl = malloc(sizeof(*ctrl));
-//	ctrl->thread.type = TSPLIT;
-//
-//	return pthread_create(&ctrl->thread.id,NULL,split_main,(void *)ctrl);
-//}
 
 int ncp_send(int argc, char *argv[])
 {
+	/* initialize events */
+	int rc = init_events();
+
+
 	/* configure connection */
 	conf_t conf;
 	configure_send(argc,argv,&conf);
@@ -140,7 +107,7 @@ int ncp_send(int argc, char *argv[])
 	{
 		out_ctrl_t *c = &out_ctrl[n]; // this in_ctrl structure
 
-		c->thread.type = TSTREAMI;
+		c->thread.type = TSTREAMO;
 		c->queue = copy_blkq(blkq,READ);
 		c->socket = conf.socks.sock[n];
 
@@ -153,7 +120,6 @@ int ncp_send(int argc, char *argv[])
 
 	split_ctrl->thread.type = TSPLIT; // copy parameters
 	split_ctrl->queue = copy_blkq(blkq,WRITE);
-
 
 	pthread_create(&split_ctrl->thread.id,NULL,split,(void *)split_ctrl); // initialize thread
 

@@ -1,9 +1,9 @@
 #include "recv.h"
 #include "pipe.h"
 #include "thread.h"
-//#include "event.h"
+#include "event.h"
 #include "block.h"
-//#include "queue.h"
+#include "queue.h"
 #include "config.h"
 
 #include <stdio.h>
@@ -21,15 +21,13 @@ typedef struct {
 	blkq_t queue;
 } join_ctrl_t;
 
-//struct blk_node_s{
-//	SLIST_ENTRY(blk_node_s) node;
-//	blk_t *blk;
-//};
-//typedef struct blk_node_s blk_node_t;
-//
-//SLIST_HEAD(blk_cache_t,blk_node_s) blk_cache = SLIST_HEAD_INITIALIZER(blk_cache);
-//
-//static ssn_t ssn_next = 0; // ssn of next block to write to stdout
+/* block cache structures */
+struct blk_node_s{
+	SLIST_ENTRY(blk_node_s) node;
+	blk_t *blk;
+};
+typedef struct blk_node_s blk_node_t;
+
 
 void in_stream(void *arg)
 {
@@ -73,103 +71,84 @@ void in_stream(void *arg)
 
 void join(void *arg)
 {
+	/* get control structure */
+	join_ctrl_t *ctrl = (join_ctrl_t *) arg;
 
+
+	/* fetch and output blocks in order */
+	int rc;
+	static ssn_t ssn_next = 0;
+	blk_t *blk;
+	SLIST_HEAD(blk_cache_t,blk_node_s) blk_cache = SLIST_HEAD_INITIALIZER(blk_cache);
+
+	while((rc = get_blk(ctrl->queue,&blk)) > 0)
+	{
+		/* add to block list in ordered position */
+		blk_node_t *new_node = malloc(sizeof(blk_node_t)); // allocate new node
+		new_node->blk = blk; // associate block with node
+
+		if (SLIST_EMPTY(&blk_cache))
+		{
+			SLIST_INSERT_HEAD(&blk_cache,new_node,node); // list empty - insert at head
+		}
+		else
+		{
+			blk_node_t *iter_node = SLIST_FIRST(&blk_cache);
+			if(new_node->blk->ssn < iter_node->blk->ssn)
+			{
+				SLIST_INSERT_HEAD(&blk_cache,new_node,node); // smallest ssn - insert at head
+			}
+			else
+			{
+				while(new_node->blk->ssn < iter_node->blk->ssn) iter_node = SLIST_NEXT(iter_node,node); // find preceding node
+				SLIST_INSERT_AFTER(iter_node,new_node,node); // insert at appropriate position
+			}
+		}
+
+
+		/* write out any appropriate blocks */
+		while(!SLIST_EMPTY(&blk_cache) && SLIST_FIRST(&blk_cache)->blk->ssn == ssn_next)
+		{
+			blk_node_t *node = SLIST_FIRST(&blk_cache);
+
+			/* output the block */
+			write(STDOUT_FILENO,blk->data,blk->len);
+			++ssn_next; // advance sequence number
+
+			/* free block resources */
+			blk_free(node->blk);
+
+			/* remove block from list */
+			SLIST_REMOVE_HEAD(&blk_cache,node);
+			free(node); // free node resources
+		}
+	}
+
+
+	/* examine reason for pipe close */
+	switch(rc)
+	{
+	case 0:
+		notify(ctrl->thread,OK);
+		break;
+	default:
+		notify(ctrl->thread,EPIPE);
+		break;
+	}
+
+
+	/* deinitialize thread */
+	free(ctrl);
+	pthread_exit(NULL);
 }
 
-//void join_main(void *arg)
-//{
-//	/* initialize thread */
-//	join_ctrl_t *ctrl = (join_ctrl_t *) arg;
-//
-//	/* initialize queue */
-//	blkqueue_t queue;
-//	init_blkqueue(queue);
-//
-//	/* initialize in-stream threads */
-//	fprintf(stderr,"Initializing in streams...\n");
-//
-//	for(int n=0; n<4; ++n) start_in(queue,NULL);
-//	close(queue[1]); // close write-end of pipe to leave threads as only remaining write-ends
-//
-//	/* fetch and output blocks in order */
-//	int rc;
-//	blk_t *blk;
-//
-////	printf("Waiting for a new block...\n");
-//	while((rc = get_blk(queue,&blk)) > 0)
-//	{
-//		/* add to block list in ordered position */
-////		fprintf(stderr,"Allocating new node...\n");
-//		blk_node_t *new_node = malloc(sizeof(blk_node_t)); // allocate new node
-//		new_node->blk = blk; // associate block with node
-//
-////		fprintf(stderr,"Inserting new node...\n");
-//		if (SLIST_EMPTY(&blk_cache))
-//		{
-////			fprintf(stderr,"...list is empty: inserting at head.\n");
-//			SLIST_INSERT_HEAD(&blk_cache,new_node,node); // list empty - insert at head
-//		}
-//		else
-//		{
-//			blk_node_t *iter_node = SLIST_FIRST(&blk_cache);
-//			if(new_node->blk->ssn < iter_node->blk->ssn)
-//			{
-////				fprintf(stderr,"...new node has smallest ssn: inserting at head.\n");
-//				SLIST_INSERT_HEAD(&blk_cache,new_node,node);
-//			}
-//			else
-//			{
-////				fprintf(stderr,"...mid-list.\n");
-//				while(new_node->blk->ssn < iter_node->blk->ssn) iter_node = SLIST_NEXT(iter_node,node); // find preceding node
-//				SLIST_INSERT_AFTER(iter_node,new_node,node);
-//			}
-//		}
-//
-//
-//		/* write out any appropriate blocks */
-////		fprintf(stderr,"Looking for next-in-sequence blocks to write...\n");
-//		while(!SLIST_EMPTY(&blk_cache) && SLIST_FIRST(&blk_cache)->blk->ssn == ssn_next)
-//		{
-//			blk_node_t *node = SLIST_FIRST(&blk_cache);
-//
-//			/* output the block */
-//			write(STDOUT_FILENO,blk->data,blk->len);
-//			++ssn_next; // advance sequence number
-//
-//			/* free block resources */
-//			blk_free(node->blk);
-//
-//			/* remove block from list */
-//			SLIST_REMOVE_HEAD(&blk_cache,node);
-//			free(node); // free node resources
-//	}
-//
-//	/* examine reason for pipe close */
-//	switch(rc)
-//	{
-//	case 0:
-//		put_event(ctrl->thread,OK);
-//		break;
-//	default:
-//		put_event(ctrl->thread,EPIPE);
-//		break;
-//	}
-//
-//	/* deinitialize thread */
-//	free(ctrl);
-//	pthread_exit(NULL);
-//}
-//
-//int start_join(ncp_opt_t *opt)
-//{
-//	join_ctrl_t *ctrl = malloc(sizeof(*ctrl));
-//	ctrl->thread.type = TJOIN;
-//
-//	return pthread_create(&ctrl->thread.id,NULL,join_main,(void *)ctrl);
-//}
 
 int ncp_recv(int argc, char *argv[])
 {
+	/* initialize events */
+	int rc = init_events();
+
+
 	/* configure connection */
 	fprintf(stderr,"Starting connection configuration...\n");
 	conf_t conf;
@@ -220,8 +199,6 @@ int ncp_recv(int argc, char *argv[])
 
 //int ncp_recv(int argc, char *argv[])
 //{
-//	/* initialize events */
-//	int rc = init_events();
 //
 //
 //	/* wait for event */
