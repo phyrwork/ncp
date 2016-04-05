@@ -92,12 +92,12 @@ int sock_recv(int sock, const char *buf, size_t len)
 		&flags // msg_flags
 	);
 
-	if(rc > 0) fprintf(stderr,"sctp_recvmsg(): ssn:%u\n",sndrcvinfo.sinfo_ssn);
+	// if(rc > 0) fprintf(stderr,"sctp_recvmsg(): ssn:%u\n",sndrcvinfo.sinfo_ssn);
 
 	return rc;
 }
 
 int sock_close(int sock)
 {
-	return close(sock);
+	return shutdown(sock,SHUT_RDWR);
 }

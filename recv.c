@@ -45,11 +45,12 @@ void in_stream(void *arg)
 	fprintf(stderr,"Stream %lu: Waiting for data.\n",ctrl->thread.id);
 	while((rc = sock_recv(ctrl->sock,(char *)blk,sizeof(*blk) + BLEN_DEFAULT)) > 0)
 	{
-		fprintf(stderr,"Stream %lu: Block received (ssn:%u,len:%u)\n",ctrl->thread.id,blk->ssn,blk->len);
+		fprintf(stderr,"Stream %lu: Block received (rc:%d, ssn:%u,len:%u)\n",ctrl->thread.id,rc,blk->ssn,blk->len);
 		int rp = put_blk(ctrl->queue,blk); // add block to queue
 		blk = blk_alloc(); // get an empty block
 
 		if(rp <= 0) { notify(ctrl->thread,EPIPE); break; } // check for pipe errors
+
 		sleep(1);
 	}
 	if(rc == 0)
@@ -81,7 +82,7 @@ void join(void *arg)
 	blk_t *blk;
 	SLIST_HEAD(blk_cache_t,blk_node_s) blk_cache = SLIST_HEAD_INITIALIZER(blk_cache);
 
-	fprintf(stderr,"Join: Waiting for data.\n");
+	// fprintf(stderr,"Join: Waiting for data.\n");
 	while((rc = get_blk(ctrl->queue,&blk)) > 0)
 	{
 		fprintf(stderr,"Join: New block received (ssn:%u)\n",blk->ssn);
@@ -89,7 +90,7 @@ void join(void *arg)
 		/* add to block list in ordered position */
 		if(blk->ssn >= ssn_next)
 		{
-			fprintf(stderr,"Join: Adding block to cache.\n");
+			// fprintf(stderr,"Join: Adding block to cache.\n");
 
 			blk_node_t *new_node = malloc(sizeof(blk_node_t)); // allocate new node
 			new_node->blk = blk; // associate block with node
@@ -114,13 +115,24 @@ void join(void *arg)
 		}
 		else
 		{
-			fprintf(stderr,"Join: Duplicate block received (ssn:%u) - discarding!\n",blk->ssn);
+			fprintf(stderr,"Join: Duplicate block received (ssn_next:%u, ssn:%u) - discarding!\n",ssn_next,blk->ssn);
 			blk_free(blk);
 		}
 
 
 		/* write out any appropriate blocks */
-		fprintf(stderr,"Join: Looking for blocks to write.\n");
+		// fprintf(stderr,"Join: Looking for blocks to write.\n");
+		if(!SLIST_EMPTY(&blk_cache))
+		{
+			fprintf(stderr,"Join: Blocks in list: ");
+			blk_node_t *node = SLIST_FIRST(&blk_cache);
+			while(SLIST_NEXT(node,node) != NULL)
+			{
+				fprintf(stderr,"%u ",node->blk->ssn);
+				node = SLIST_NEXT(node,node);
+			}
+		}
+
 		while(!SLIST_EMPTY(&blk_cache) && SLIST_FIRST(&blk_cache)->blk->ssn == ssn_next)
 		{
 			blk_node_t *node = SLIST_FIRST(&blk_cache);
@@ -132,12 +144,12 @@ void join(void *arg)
 
 			/* free block resources */
 			blk_free(node->blk);
-			fprintf(stderr,"Join: Released block resources.\n");
+			// fprintf(stderr,"Join: Released block resources.\n");
 
 			/* remove block from list */
 			SLIST_REMOVE_HEAD(&blk_cache,node);
 			free(node); // free node resources
-			fprintf(stderr,"Join: Released node resources.\n");
+			// fprintf(stderr,"Join: Released node resources.\n");
 		}
 	}
 

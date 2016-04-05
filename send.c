@@ -37,11 +37,14 @@ void out_stream(void *arg)
 	{
 		fprintf(stderr,"Stream %lu: Block to send (ssn:%u,len:%u)\n",ctrl->thread.id,blk->ssn,blk->len);
 		int rc = sock_send(ctrl->sock,(char *)blk,sizeof(*blk) + blk->len);// send block via sock
+		fprintf(stderr,"Stream %lu: Block sent (ssn:%u)\n",ctrl->thread.id,blk->ssn);
+
 		blk_free(blk); // discard the block
+		fprintf(stderr,"Stream %lu: Block discarded.\n",ctrl->thread.id);
 
 		if(rc <= 0) { notify(ctrl->thread,ESOCK); break; } // check for sock errors
 	}
-	if(rp == 0) close(ctrl->sock); // no more data - close socket
+	if(rp == 0) sock_close(ctrl->sock); // no more data - close socket
 	else notify(ctrl->thread,EPIPE);
 
 
@@ -60,16 +63,24 @@ void split(void *arg)
 	static ssn_t ssn_next = 0;
 	blk_t *blk = blk_alloc();
 
+	fprintf(stderr,"Split: Waiting for data.\n");
 	while((rc = read(STDIN_FILENO,blk->data,BLEN_DEFAULT)) > 0)
 	{
+		fprintf(stderr,"Split: Block received - adding metadata.\n");
 		blk->ssn = ssn_next++;
 		blk->len = rc;
-		put_blk(ctrl->queue,blk);
+
+		put_blk(ctrl->queue,blk); // add block to queue
+		fprintf(stderr,"Split: Block added to queue (ssn:%u, len:%u).\n",blk->ssn,blk->len);
+
+		blk = blk_alloc(); // allocate a new buffer block
+		fprintf(stderr,"Split: Allocated a new buffer block.\n",blk->ssn,blk->len);
 	}
 
 	/* examine reason for stdin read break */
 	if(rc == 0) // stdin EOF - no more data to send
 	{
+
 		close(ctrl->queue.fd[1]); // close the write end - read end will get EOF
 		notify(ctrl->thread,OK);
 	}
@@ -132,6 +143,9 @@ int ncp_send(int argc, char *argv[])
 		switch(event.id)
 		{
 		case OK:
+			sleep(1);
+			// need to wait for read queue to be completely emptied first
+			// maybe we could join the send threads? need to re-think the graceful shutdown
 			exit(0);
 
 		case EPIPE:
