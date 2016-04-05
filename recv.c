@@ -5,21 +5,24 @@
 #include "block.h"
 #include "queue.h"
 #include "config.h"
+#include "socket.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 //#include <errno.h>
 
+
 typedef struct {
 	thread_t thread;
 	blkq_t queue;
-	int socket;
+	int sock;
 } in_ctrl_t;
 
 typedef struct {
 	thread_t thread;
 	blkq_t queue;
 } join_ctrl_t;
+
 
 /* block cache structures */
 struct blk_node_s{
@@ -31,43 +34,29 @@ typedef struct blk_node_s blk_node_t;
 
 void in_stream(void *arg)
 {
+	/* get control structure */
+	in_ctrl_t *ctrl = (in_ctrl_t*) arg;
 
+
+	/* read from socket until closed or error */
+	int rc;
+	blk_t *blk = blk_alloc();
+
+	while((rc = sock_recv(ctrl->sock,(char *)blk,sizeof(*blk) + BLEN_DEFAULT)) > 0)
+	{
+		int rp = put_blk(ctrl->queue,blk); // add block to queue
+		blk = blk_alloc(); // get an empty block
+
+		if(rp <= 0) { notify(ctrl->thread,EPIPE); break; } // check for pipe errors
+	}
+	if(rc) notify(ctrl->thread,OK);
+	else notify(ctrl->thread,ESOCK);
+
+
+	/* deinitialize thread */
+	free(ctrl);
+	pthread_exit(NULL);
 }
-//void in_main(void *arg)
-//{
-//	/* initialize thread */
-//	stream_ctrl_t *ctrl = (stream_ctrl_t*) arg;
-//
-//	/* initialize socket */
-//
-//
-//	/* close pipe */
-//	sleep(3);
-//	fprintf(stderr,"Closing pipe @ fd=%d...\n",ctrl->queue[1]);
-//	int rc = close(ctrl->queue[1]);
-//	if(rc == 0) fprintf(stderr,"Closed successfully!\n");
-//
-//	/* deinitialize thread */
-//	free(ctrl);
-//	pthread_exit(NULL);
-//}
-//
-//int start_in(blkqueue_t queue, unsigned short port)
-//{
-//	stream_ctrl_t *ctrl = malloc(sizeof(*ctrl)); // create persistent memory to pass to thread
-//	ctrl->thread.type = TSTREAMI;
-//
-//	/* copy target socket */
-//	//ctrl->addr = NULL;
-//	ctrl->port = port;
-//
-//	/* duplicate write-end file descriptor */
-//	ctrl->queue[0] = queue[0];
-//	ctrl->queue[1] = queue[1];
-//	ctrl->queue[1] = dup(ctrl->queue[1]);
-//
-//	return pthread_create(&ctrl->thread.id,NULL,in_main,(void *)ctrl);
-//}
 
 void join(void *arg)
 {
@@ -182,7 +171,7 @@ int ncp_recv(int argc, char *argv[])
 
 		c->thread.type = TSTREAMI;
 		c->queue = copy_blkq(blkq,WRITE);
-		c->socket = conf.socks.sock[n];
+		c->sock = conf.socks.sock[n];
 
 		pthread_create(&c->thread.id,NULL,in_stream,(void *)c); // initialize thread
 	}

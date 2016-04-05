@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <netdb.h>
 #include <stdlib.h>
+#include <strings.h>
 
 #define SIZEOF_NEG_T(num_ports) (sizeof(neg_t) + (num_ports-1)*sizeof(unsigned short))
 
@@ -166,6 +167,8 @@ int configure_recv(int argc, char *argv[], conf_t *conf)
 			fprintf(stderr,"All ports reserved successfully: signalling 'ACK'\n");
 			opt->ack = ACK;
 			break;
+
+		case ACK:
 
 		case REJ:
 			fprintf(stderr,"Cannot send: Client rejected configuration options without amendment.");

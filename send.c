@@ -4,6 +4,7 @@
 #include "config.h"
 #include "pipe.h"
 #include "event.h"
+#include "socket.h"
 
 #include <stdlib.h>
 //#include <stdio.h>
@@ -13,7 +14,7 @@
 typedef struct {
 	thread_t thread;
 	blkq_t queue;
-	int socket;
+	int sock;
 } out_ctrl_t;
 
 typedef struct {
@@ -23,31 +24,29 @@ typedef struct {
 
 void out_stream(void *arg)
 {
+	/* get control structure */
+	out_ctrl_t *ctrl = (out_ctrl_t*) arg;
 
+
+	/* write to socket until pipe closed or error */
+	int rp;
+	blk_t *blk;
+
+	while((rp = get_blk(ctrl->queue,&blk)) > 0) // get block from queue
+	{
+		int rc = sock_send(ctrl->sock,(char *)blk,sizeof(*blk) + blk->len);// send block via sock
+		blk_free(blk); // discard the block
+
+		if(rc <= 0) { notify(ctrl->thread,ESOCK); break; } // check for sock errors
+	}
+	if(rp) notify(ctrl->thread,OK);
+	else notify(ctrl->thread,EPIPE);
+
+
+	/* deinitialize thread */
+	free(ctrl);
+	pthread_exit(NULL);
 }
-//void out_main(void *arg)
-//{
-//	/* initialize thread */
-//	stream_ctrl_t *ctrl = (stream_ctrl_t*) arg;
-//
-//	/* initialize socket */
-//	//
-//
-//	/* read blocks from queue */
-//	int rc;
-//	blk_t *blk;
-//	while((rc = get_blk(ctrl->queue,&blk)) > 0)
-//	{
-//		/* write data to socket */
-//
-//		//debug
-//		fprintf(stderr,"Output block ssn: %d, len: %d, data: %s\n",blk->ssn,blk->len,blk->data);
-//	}
-//
-//	/* deinitialize thread */
-//	free(ctrl);
-//	pthread_exit(NULL);
-//}
 
 void split(void *arg)
 {
@@ -109,7 +108,7 @@ int ncp_send(int argc, char *argv[])
 
 		c->thread.type = TSTREAMO;
 		c->queue = copy_blkq(blkq,READ);
-		c->socket = conf.socks.sock[n];
+		c->sock = conf.socks.sock[n];
 
 		pthread_create(&c->thread.id,NULL,out_stream,(void *)c); // initialize thread
 	}

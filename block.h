@@ -10,7 +10,7 @@ typedef uint32_t ssn_t;
 typedef uint32_t blen_t;
 #define SSN_MAX UINT32_MAX
 #define BLEN_MAX UINT32_MAX
-#define BLEN_DEFAULT 1*1024^2 // 1M
+#define BLEN_DEFAULT (1*1024^2) // 1M
 
 typedef struct {
 	ssn_t ssn;
