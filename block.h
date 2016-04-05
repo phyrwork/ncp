@@ -32,6 +32,7 @@ void blk_free(blk_t *blk);
 
 int init_blkq(blkq_t *queue);
 blkq_t copy_blkq(blkq_t queue, blkq_mode_t mode);
+
 int put_blk(blkq_t queue, blk_t *blk);
 int get_blk(blkq_t queue, blk_t **blk);
 

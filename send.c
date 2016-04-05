@@ -2,12 +2,11 @@
 #include "thread.h"
 #include "block.h"
 #include "config.h"
-
-//#include "pipe.h"
+#include "pipe.h"
 //#include "event.h"
-//#include <stdlib.h>
+
+#include <stdlib.h>
 //#include <stdio.h>
-//#include "config.h"
 //#include <errno.h>
 //#include <netdb.h>
 
@@ -125,7 +124,44 @@ void split(void *arg)
 
 int ncp_send(int argc, char *argv[])
 {
-	configure_send(argc,argv);
+	/* configure connection */
+	conf_t conf;
+	configure_send(argc,argv,&conf);
+
+
+	/* initialize queue */
+	blkq_t blkq;
+	init_blkq(&blkq);
+
+
+	/* initialise streams */
+	out_ctrl_t *out_ctrl = malloc(conf.socks.len * sizeof(*out_ctrl));
+	for(size_t n=0;n<conf.socks.len;++n)
+	{
+		out_ctrl_t *c = &out_ctrl[n]; // this in_ctrl structure
+
+		c->thread.type = TSTREAMI;
+		c->queue = copy_blkq(blkq,READ);
+		c->socket = conf.socks.sock[n];
+
+		pthread_create(&c->thread.id,NULL,out_stream,(void *)c); // initialize thread
+	}
+
+
+	/* initalize split */
+	split_ctrl_t *split_ctrl = malloc(sizeof(*split_ctrl));
+
+	split_ctrl->thread.type = TSPLIT; // copy parameters
+	split_ctrl->queue = copy_blkq(blkq,WRITE);
+
+
+	pthread_create(&split_ctrl->thread.id,NULL,split,(void *)split_ctrl); // initialize thread
+
+
+	/* monitor for events */
+	close(blkq.fd[0]);
+	close(blkq.fd[1]); // close original block queue descriptors to leave copies as only open ones
+
 	return 0;
 }
 
@@ -133,33 +169,6 @@ int ncp_send(int argc, char *argv[])
 //{
 //	/* initialize events */
 //	int rc = init_events();
-//
-//	/* create negotiation socket */
-//	unsigned short port = atoi(argv[argc-1]); // get port
-//	unsigned long addr;
-//	{
-//		struct hostent *server = gethostbyname(argv[argc-2]);
-//		if(server == NULL)
-//		{
-//			fprintf(stderr,"Cannot send: Unknown host");
-//			exit(0);
-//		}
-//		bcopy((char *)server->h_addr,(char *) &addr,server->h_length);
-//		addr = ntohl(addr);
-//	}
-//	fprintf(stderr,"Initiating negotiation with host %lu:%u\n",addr,port);
-//	int sock = sock_out(addr,port); // initiate outgoing connection
-//
-//	/* send connection options */
-//	void *opt = malloc(SIZEOF_NCP_RESPONSE(NUM_PORTS_MAX));
-//	((ncp_opt_t *)opt)->blen = BLEN_DEFAULT;
-//	((ncp_opt_t *)opt)->num_ports = NUM_PORTS_DEFAULT;
-//	sock_send(sock,(char *)opt,sizeof(*((ncp_opt_t *)opt))); // send options
-//	rc = sock_recv(sock,(char *)opt,SIZEOF_NCP_RESPONSE(NUM_PORTS_MAX)); // wait for response
-//
-//	/* start send */
-//	fprintf(stderr,"Starting split...\n");
-//	start_split((ncp_opt_t *)opt,addr);
 //
 //	/* wait for event */
 //	fprintf(stderr,"Waiting for events...\n");

@@ -17,7 +17,7 @@ typedef struct {
 	sock_list_t socks;
 } conf_t;
 
-int configure_send(int argc, char *argv[]);
-int configure_recv(int argc, char *argv[]);
+int configure_send(int argc, char *argv[], conf_t *conf);
+int configure_recv(int argc, char *argv[], conf_t *conf);
 
 #endif /* NCP_CONFIG_H */

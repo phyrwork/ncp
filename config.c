@@ -45,7 +45,7 @@ int reserve_port(sock_list_t *socks)
 	return port;
 }
 
-int configure_send(int argc, char *argv[])
+int configure_send(int argc, char *argv[], conf_t *conf)
 {
 	/* configure negotiation connection */
 	unsigned short cport = atoi(argv[argc-1]);
@@ -97,17 +97,19 @@ int configure_send(int argc, char *argv[])
 
 	/* connect sockets */
 	fprintf(stderr,"Connecting to sockets on ports");
-	conf_t conf;
+	conf->socks.sock = malloc(opt->streams * sizeof(*conf->socks.sock));
 	for(size_t n=0; n<opt->streams; ++n)
 	{
 		fprintf(stderr," %d",opt->port[n]);
-		conf.socks.sock[n] = sock_connect(caddr,opt->port[n]);
+		conf->socks.sock[n] = sock_connect(caddr,opt->port[n]);
 	}
-	conf.socks.len = opt->streams;
+	conf->socks.len = opt->streams;
 	fprintf(stderr,"... done!\n");
+
+	return 0;
 }
 
-int configure_recv(int argc, char *argv[])
+int configure_recv(int argc, char *argv[], conf_t *conf)
 {
 	/* configure negotiation connection */
 	unsigned short cport = atoi(argv[argc-1]);
@@ -115,8 +117,7 @@ int configure_recv(int argc, char *argv[])
 	csock = sock_accept(csock);
 
 	/* negotiate connection options */
-	conf_t conf;
-	conf.socks.len = 0; // initialize sock list
+	conf->socks.len = 0; // initialize sock list
 
 	neg_t *opt = malloc(SIZEOF_NEG_T(NUM_PORTS_MAX)); // initialize option structure
 	opt->ack = NACK;
@@ -138,10 +139,10 @@ int configure_recv(int argc, char *argv[])
 			// do nothing yet
 
 			/* attempt to reserve ports */
-			for (n=conf.socks.len;n<opt->streams;++n)
+			for (n=conf->socks.len;n<opt->streams;++n)
 			{
 				fprintf(stderr,"Attempting to reserve a port...");
-				unsigned short port = reserve_port(&conf.socks);
+				unsigned short port = reserve_port(&conf->socks);
 				if(port < 0)
 				{
 					fprintf(stderr," failed!\n");
@@ -177,7 +178,9 @@ int configure_recv(int argc, char *argv[])
 
 	/* complete socket connections */
 	fprintf(stderr,"Waiting for socket connections...");
-	for(size_t n=0; n<conf.socks.len; ++n)
-		conf.socks.sock[n] = sock_accept(conf.socks.sock[n]);
+	for(size_t n=0; n<conf->socks.len; ++n)
+		conf->socks.sock[n] = sock_accept(conf->socks.sock[n]);
 	fprintf(stderr,"... done!\n");
+
+	return 0;
 }

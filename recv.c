@@ -1,19 +1,20 @@
 #include "recv.h"
-//#include "pipe.h"
+#include "pipe.h"
 #include "thread.h"
 //#include "event.h"
 #include "block.h"
-//#include <stdio.h>
-//#include <stdlib.h>
 //#include "queue.h"
+#include "config.h"
+
+#include <stdio.h>
+#include <stdlib.h>
 //#include <errno.h>
-//#include "config.h"
 
 typedef struct {
 	thread_t thread;
 	blkq_t queue;
 	int socket;
-} out_ctrl_t;
+} in_ctrl_t;
 
 typedef struct {
 	thread_t thread;
@@ -169,7 +170,51 @@ void join(void *arg)
 
 int ncp_recv(int argc, char *argv[])
 {
-	configure_recv(argc,argv);
+	/* configure connection */
+	fprintf(stderr,"Starting connection configuration...\n");
+	conf_t conf;
+	configure_recv(argc,argv,&conf);
+
+
+	/* initialize queue */
+	fprintf(stderr,"Initializing block queue...");
+	blkq_t blkq;
+	init_blkq(&blkq);
+	fprintf(stderr," done!\n");
+
+
+	/* initalize join */
+	fprintf(stderr,"Initializing join...");
+	join_ctrl_t *join_ctrl = malloc(sizeof(*join_ctrl));
+
+	join_ctrl->thread.type = TJOIN; // copy parameters
+	join_ctrl->queue = copy_blkq(blkq,READ);
+
+	pthread_create(&join_ctrl->thread.id,NULL,join,(void *)join_ctrl); // initialize thread
+	fprintf(stderr," done!\n");
+
+
+	/* initialise streams */
+	fprintf(stderr,"Initializing streams...");
+	in_ctrl_t *in_ctrl = malloc(conf.socks.len * sizeof(*in_ctrl));
+	for(size_t n=0;n<conf.socks.len;++n)
+	{
+		in_ctrl_t *c = &in_ctrl[n]; // this in_ctrl structure
+
+		c->thread.type = TSTREAMI;
+		c->queue = copy_blkq(blkq,WRITE);
+		c->socket = conf.socks.sock[n];
+
+		pthread_create(&c->thread.id,NULL,in_stream,(void *)c); // initialize thread
+	}
+	fprintf(stderr," done!\n");
+
+
+	/* monitor for events */
+	close(blkq.fd[0]);
+	close(blkq.fd[1]); // close original block queue descriptors to leave copies as only open ones
+
+
 	return 0;
 }
 
@@ -178,27 +223,6 @@ int ncp_recv(int argc, char *argv[])
 //	/* initialize events */
 //	int rc = init_events();
 //
-//	/* create negotiation socket */
-//	unsigned short port = atoi(argv[argc-1]);
-//	fprintf(stderr,"Awaiting negotiation on port %u...\n",port);
-//	int sock = sock_in(port); // wait for incoming connection
-//	fprintf(stderr,"...connected!\n");
-//
-//	/* get connection options */
-//	fprintf(stderr,"Awaiting connection options...\n");
-//	void *opt = malloc(SIZEOF_NCP_RESPONSE(NUM_PORTS_MAX));
-//	sock_recv(sock,(char *)opt,sizeof(*((ncp_opt_t *)opt))); // await connection options
-//	fprintf(stderr,"...received!\n");
-//
-//	/* initialize receive */
-//	unsigned char num_ports = 0;
-//	while(num_ports < ((ncp_opt_t *)opt)->num_ports)
-//	{
-//
-//	}
-//
-//	fprintf(stderr,"Initializing receive...\n");
-//	start_join((ncp_opt_t *)opt);
 //
 //	/* wait for event */
 //	fprintf(stderr,"Waiting for events...\n");
