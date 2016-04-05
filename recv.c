@@ -31,6 +31,62 @@ struct blk_node_s{
 };
 typedef struct blk_node_s blk_node_t;
 
+SLIST_HEAD(blk_cache_s,blk_node_s);
+typedef struct blk_cache_s blk_cache_t;
+
+
+void sorted_insert(blk_cache_t *head,blk_node_t *new_node)
+{
+	blk_node_t *current;
+
+	/* if list is empty or new is smaller than head - insert at head */
+	if(SLIST_FIRST(head) == NULL)
+	{
+		SLIST_INSERT_HEAD(head,new_node,node);
+	}
+	else if(SLIST_FIRST(head)->blk->ssn > new_node->blk->ssn)
+	{
+		/* discard duplicates */
+		fprintf(stderr,"first:%u,new:%u...",SLIST_FIRST(head)->blk->ssn,new_node->blk->ssn);
+
+		if(SLIST_FIRST(head)->blk->ssn == new_node->blk->ssn)
+		{
+			blk_free(new_node->blk);
+			free(new_node);
+			fprintf(stderr,"...discarded!\n");
+		}
+		else
+		{
+			SLIST_INSERT_HEAD(head,new_node,node);
+			fprintf(stderr,"...inserted!\n");
+		}
+	}
+	else
+	{
+		/* locate the node before the point of insertion */
+		current = SLIST_FIRST(head);
+		while(SLIST_NEXT(current,node) != NULL && SLIST_NEXT(current,node)->blk->ssn < new_node->blk->ssn)
+		{
+			current = SLIST_NEXT(current,node);
+		}
+
+		/* discard duplicates */
+		fprintf(stderr,"current:%u,new:%u...",current->blk->ssn,new_node->blk->ssn);
+
+		if(new_node->blk->ssn == current->blk->ssn)
+		{
+			blk_free(new_node->blk);
+			free(new_node);
+			fprintf(stderr,"...discarded!\n");
+		}
+		else
+		{
+			SLIST_INSERT_AFTER(current,new_node,node);
+			fprintf(stderr,"...inserted!\n");
+		}
+	}
+}
+
 
 void in_stream(void *arg)
 {
@@ -45,7 +101,7 @@ void in_stream(void *arg)
 	fprintf(stderr,"Stream %lu: Waiting for data.\n",ctrl->thread.id);
 	while((rc = sock_recv(ctrl->sock,(char *)blk,sizeof(*blk) + BLEN_DEFAULT)) > 0)
 	{
-		fprintf(stderr,"Stream %lu: Block received (rc:%d, ssn:%u,len:%u)\n",ctrl->thread.id,rc,blk->ssn,blk->len);
+		// fprintf(stderr,"Stream %lu: Block received (rc:%d, ssn:%u,len:%u)\n",ctrl->thread.id,rc,blk->ssn,blk->len);
 		int rp = put_blk(ctrl->queue,blk); // add block to queue
 		blk = blk_alloc(); // get an empty block
 
@@ -80,77 +136,66 @@ void join(void *arg)
 	int rc;
 	static ssn_t ssn_next = 0;
 	blk_t *blk;
-	SLIST_HEAD(blk_cache_t,blk_node_s) blk_cache = SLIST_HEAD_INITIALIZER(blk_cache);
+	blk_cache_t blk_cache = SLIST_HEAD_INITIALIZER(blk_cache);
 
 	// fprintf(stderr,"Join: Waiting for data.\n");
 	while((rc = get_blk(ctrl->queue,&blk)) > 0)
 	{
-		fprintf(stderr,"Join: New block received (ssn:%u)\n",blk->ssn);
+		// fprintf(stderr,"Join: New block received (ssn:%u)\n",blk->ssn);
 
 		/* add to block list in ordered position */
-		if(blk->ssn >= ssn_next)
-		{
-			// fprintf(stderr,"Join: Adding block to cache.\n");
-
-			blk_node_t *new_node = malloc(sizeof(blk_node_t)); // allocate new node
-			new_node->blk = blk; // associate block with node
-
-			if (SLIST_EMPTY(&blk_cache))
-			{
-				SLIST_INSERT_HEAD(&blk_cache,new_node,node); // list empty - insert at head
-			}
-			else
-			{
-				blk_node_t *iter_node = SLIST_FIRST(&blk_cache);
-				if(new_node->blk->ssn < iter_node->blk->ssn)
-				{
-					SLIST_INSERT_HEAD(&blk_cache,new_node,node); // smallest ssn - insert at head
-				}
-				else
-				{
-					while(new_node->blk->ssn < iter_node->blk->ssn) iter_node = SLIST_NEXT(iter_node,node); // find preceding node
-					SLIST_INSERT_AFTER(iter_node,new_node,node); // insert at appropriate position
-				}
-			}
-		}
-		else
+		if(blk->ssn < ssn_next)
 		{
 			fprintf(stderr,"Join: Duplicate block received (ssn_next:%u, ssn:%u) - discarding!\n",ssn_next,blk->ssn);
 			blk_free(blk);
+		}
+		else
+		{
+			/* initialize new node */
+			blk_node_t *new_node = malloc(sizeof(*new_node));
+			new_node->blk = blk;
+
+			/* ordered insert */
+			sorted_insert(&blk_cache,new_node);
+		}
+
+		// debug
+		if(!SLIST_EMPTY(&blk_cache))
+		{
+			fprintf(stderr,"Join: Blocks in list - ");
+			blk_node_t *iter_node = SLIST_FIRST(&blk_cache);
+
+			fprintf(stderr,"%u ",iter_node->blk->ssn);
+			while(SLIST_NEXT(iter_node,node) != NULL)
+			{
+				fprintf(stderr,"%u ",iter_node->blk->ssn);
+				iter_node = SLIST_NEXT(iter_node,node);
+			}
+
+			fprintf(stderr,"\n");
 		}
 
 
 		/* write out any appropriate blocks */
 		// fprintf(stderr,"Join: Looking for blocks to write.\n");
-		if(!SLIST_EMPTY(&blk_cache))
-		{
-			fprintf(stderr,"Join: Blocks in list: ");
-			blk_node_t *node = SLIST_FIRST(&blk_cache);
-			while(SLIST_NEXT(node,node) != NULL)
-			{
-				fprintf(stderr,"%u ",node->blk->ssn);
-				node = SLIST_NEXT(node,node);
-			}
-		}
-
-		while(!SLIST_EMPTY(&blk_cache) && SLIST_FIRST(&blk_cache)->blk->ssn == ssn_next)
-		{
-			blk_node_t *node = SLIST_FIRST(&blk_cache);
-
-			/* output the block */
-			write(STDOUT_FILENO,blk->data,blk->len);
-			fprintf(stderr,"Join: Wrote out a block (ssn:%u)\n",blk->ssn);
-			++ssn_next; // advance sequence number
-
-			/* free block resources */
-			blk_free(node->blk);
-			// fprintf(stderr,"Join: Released block resources.\n");
-
-			/* remove block from list */
-			SLIST_REMOVE_HEAD(&blk_cache,node);
-			free(node); // free node resources
-			// fprintf(stderr,"Join: Released node resources.\n");
-		}
+//		while(!SLIST_EMPTY(&blk_cache) && SLIST_FIRST(&blk_cache)->blk->ssn == ssn_next)
+//		{
+//			blk_node_t *node = SLIST_FIRST(&blk_cache);
+//
+//			/* output the block */
+//			write(STDOUT_FILENO,blk->data,blk->len);
+//			fprintf(stderr,"Join: Wrote out a block (ssn:%u)\n",blk->ssn);
+//			++ssn_next; // advance sequence number
+//
+//			/* free block resources */
+//			blk_free(node->blk);
+//			// fprintf(stderr,"Join: Released block resources.\n");
+//
+//			/* remove block from list */
+//			SLIST_REMOVE_HEAD(&blk_cache,node);
+//			free(node); // free node resources
+//			// fprintf(stderr,"Join: Released node resources.\n");
+//		}
 	}
 
 	/* examine reason for read queue break */
