@@ -39,12 +39,11 @@ void out_stream(void *arg)
 
 		if(rc <= 0) { notify(ctrl->thread,ESOCK); break; } // check for sock errors
 	}
-	if(rp) notify(ctrl->thread,OK);
+	if(rp == 0) close(ctrl->sock); // no more data - close socket
 	else notify(ctrl->thread,EPIPE);
 
 
 	/* deinitialize thread */
-	free(ctrl);
 	pthread_exit(NULL);
 }
 
@@ -66,21 +65,19 @@ void split(void *arg)
 		put_blk(ctrl->queue,blk);
 	}
 
-
-	/* examine reason for pipe close */
-	switch(rc)
+	/* examine reason for stdin read break */
+	if(rc == 0) // stdin EOF - no more data to send
 	{
-	case 0:
+		close(ctrl->queue.fd[1]); // close the write end - read end will get EOF
 		notify(ctrl->thread,OK);
-		break;
-	default:
-		notify(ctrl->thread,EPIPE);
-		break;
+	}
+	else if(rc < 0)
+	{
+		// should probably examine errno here
 	}
 
 
 	/* deinitialize thread */
-	free(ctrl);
 	pthread_exit(NULL);
 }
 
@@ -133,16 +130,15 @@ int ncp_send(int argc, char *argv[])
 		switch(event.id)
 		{
 		case OK:
-			fprintf(stderr,"Send completed successfully!\n");
-			break;
+			exit(0);
 
 		case EPIPE:
 			fprintf(stderr,"Send failed: Pipe error!\n");
-			break;
+			exit(0);
 
 		case ESOCK:
 			fprintf(stderr,"Send failed: Socket error!\n");
-			break;
+			exit(0);
 
 		default:
 			break;

@@ -1,6 +1,8 @@
 #include "event.h"
 #include "pipe.h"
 
+#include <stdio.h>
+
 int events[2];
 
 int init_events(void)
@@ -22,12 +24,3 @@ int wait_notify(event_t *event)
 	return read(events[0],(void *) event, sizeof(*event));
 }
 
-//int put_event(thread_t thread, event_id_t id)
-//{
-
-//}
-//
-//int get_event(event_t *event)
-//{
-//
-//}

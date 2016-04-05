@@ -42,19 +42,31 @@ void in_stream(void *arg)
 	int rc;
 	blk_t *blk = blk_alloc();
 
+	fprintf(stderr,"Stream %lu: Waiting for data.\n",ctrl->thread.id);
 	while((rc = sock_recv(ctrl->sock,(char *)blk,sizeof(*blk) + BLEN_DEFAULT)) > 0)
 	{
+		fprintf(stderr,"Stream %lu: Block received (ssn:%u,len:%u)\n",ctrl->thread.id,blk->ssn,blk->len);
 		int rp = put_blk(ctrl->queue,blk); // add block to queue
+		fprintf(stderr,"Stream %lu: Block added to queue.\n",ctrl->thread.id);
 		blk = blk_alloc(); // get an empty block
+		fprintf(stderr,"Stream %lu: Allocated an empty block.\n",ctrl->thread.id);
 
 		if(rp <= 0) { notify(ctrl->thread,EPIPE); break; } // check for pipe errors
 	}
-	if(rc) notify(ctrl->thread,OK);
-	else notify(ctrl->thread,ESOCK);
+	if(rc == 0)
+	{
+		fprintf(stderr,"Stream %lu: Socket closed - closing queue.\n",ctrl->thread.id);
+		close(ctrl->queue.fd[1]); // no more data - close queue
+	}
+	else
+	{
+		fprintf(stderr,"Stream %lu: Socket error - notifying main thread 'ESOCK'.\n",ctrl->thread.id);
+		notify(ctrl->thread,ESOCK);
+	}
 
 
 	/* deinitialize thread */
-	free(ctrl);
+	//free(ctrl);
 	pthread_exit(NULL);
 }
 
@@ -70,6 +82,7 @@ void join(void *arg)
 	blk_t *blk;
 	SLIST_HEAD(blk_cache_t,blk_node_s) blk_cache = SLIST_HEAD_INITIALIZER(blk_cache);
 
+	fprintf(stderr,"Join: Waiting for data.\n");
 	while((rc = get_blk(ctrl->queue,&blk)) > 0)
 	{
 		/* add to block list in ordered position */
@@ -113,21 +126,21 @@ void join(void *arg)
 		}
 	}
 
-
-	/* examine reason for pipe close */
-	switch(rc)
+	/* examine reason for read queue break */
+	if(rc == 0) // queue EOF - no more data to receive
 	{
-	case 0:
+		fprintf(stderr,"Join: Queue fully closed - notifying main thread 'OK'.\n");
 		notify(ctrl->thread,OK);
-		break;
-	default:
-		notify(ctrl->thread,EPIPE);
-		break;
+	}
+	else if(rc < 0)
+	{
+		fprintf(stderr,"Join: Pipe error - notifying main thread 'EPIPE'.\n");
+		// should probably examine errno here
 	}
 
 
 	/* deinitialize thread */
-	free(ctrl);
+	fprintf(stderr,"Join: Exiting.\n");
 	pthread_exit(NULL);
 }
 
@@ -139,20 +152,20 @@ int ncp_recv(int argc, char *argv[])
 
 
 	/* configure connection */
-	fprintf(stderr,"Starting connection configuration...\n");
+	fprintf(stderr,"Main: Starting connection configuration...\n");
 	conf_t conf;
 	configure_recv(argc,argv,&conf);
 
 
 	/* initialize queue */
-	fprintf(stderr,"Initializing block queue...");
+	fprintf(stderr,"Main: Initializing block queue...");
 	blkq_t blkq;
 	init_blkq(&blkq);
 	fprintf(stderr," done!\n");
 
 
 	/* initalize join */
-	fprintf(stderr,"Initializing join...");
+	fprintf(stderr,"Main: Initializing join...");
 	join_ctrl_t *join_ctrl = malloc(sizeof(*join_ctrl));
 
 	join_ctrl->thread.type = TJOIN; // copy parameters
@@ -163,7 +176,7 @@ int ncp_recv(int argc, char *argv[])
 
 
 	/* initialise streams */
-	fprintf(stderr,"Initializing streams...");
+	fprintf(stderr,"Main: Initializing streams...");
 	in_ctrl_t *in_ctrl = malloc(conf.socks.len * sizeof(*in_ctrl));
 	for(size_t n=0;n<conf.socks.len;++n)
 	{
@@ -188,19 +201,18 @@ int ncp_recv(int argc, char *argv[])
 		switch(event.id)
 		{
 		case OK:
-			fprintf(stderr,"Receive completed successfully!\n");
-			break;
+			exit(0);
 
 		case EPIPE:
-			fprintf(stderr,"Receive failed: Pipe error!\n");
-			break;
+			fprintf(stderr,"Main: Receive failed: Pipe error!\n");
+			exit(0);
 
 		case ESOCK:
-			fprintf(stderr,"Receive failed: Socket error!\n");
-			break;
+			fprintf(stderr,"Main: Receive failed: Socket error!\n");
+			exit(0);
 
 		default:
-			break;
+			exit(0);
 		}
 	}
 
