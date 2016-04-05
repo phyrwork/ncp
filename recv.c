@@ -47,11 +47,10 @@ void in_stream(void *arg)
 	{
 		fprintf(stderr,"Stream %lu: Block received (ssn:%u,len:%u)\n",ctrl->thread.id,blk->ssn,blk->len);
 		int rp = put_blk(ctrl->queue,blk); // add block to queue
-		fprintf(stderr,"Stream %lu: Block added to queue.\n",ctrl->thread.id);
 		blk = blk_alloc(); // get an empty block
-		fprintf(stderr,"Stream %lu: Allocated an empty block.\n",ctrl->thread.id);
 
 		if(rp <= 0) { notify(ctrl->thread,EPIPE); break; } // check for pipe errors
+		sleep(1);
 	}
 	if(rc == 0)
 	{
@@ -85,30 +84,38 @@ void join(void *arg)
 	fprintf(stderr,"Join: Waiting for data.\n");
 	while((rc = get_blk(ctrl->queue,&blk)) > 0)
 	{
-		fprintf(stderr,"Join: Block received (ssn:%u)\n",blk->ssn);
+		fprintf(stderr,"Join: New block received (ssn:%u)\n",blk->ssn);
 
 		/* add to block list in ordered position */
-		fprintf(stderr,"Join: Adding block to cache.\n");
-
-		blk_node_t *new_node = malloc(sizeof(blk_node_t)); // allocate new node
-		new_node->blk = blk; // associate block with node
-
-		if (SLIST_EMPTY(&blk_cache))
+		if(blk->ssn >= ssn_next)
 		{
-			SLIST_INSERT_HEAD(&blk_cache,new_node,node); // list empty - insert at head
-		}
-		else
-		{
-			blk_node_t *iter_node = SLIST_FIRST(&blk_cache);
-			if(new_node->blk->ssn < iter_node->blk->ssn)
+			fprintf(stderr,"Join: Adding block to cache.\n");
+
+			blk_node_t *new_node = malloc(sizeof(blk_node_t)); // allocate new node
+			new_node->blk = blk; // associate block with node
+
+			if (SLIST_EMPTY(&blk_cache))
 			{
-				SLIST_INSERT_HEAD(&blk_cache,new_node,node); // smallest ssn - insert at head
+				SLIST_INSERT_HEAD(&blk_cache,new_node,node); // list empty - insert at head
 			}
 			else
 			{
-				while(new_node->blk->ssn < iter_node->blk->ssn) iter_node = SLIST_NEXT(iter_node,node); // find preceding node
-				SLIST_INSERT_AFTER(iter_node,new_node,node); // insert at appropriate position
+				blk_node_t *iter_node = SLIST_FIRST(&blk_cache);
+				if(new_node->blk->ssn < iter_node->blk->ssn)
+				{
+					SLIST_INSERT_HEAD(&blk_cache,new_node,node); // smallest ssn - insert at head
+				}
+				else
+				{
+					while(new_node->blk->ssn < iter_node->blk->ssn) iter_node = SLIST_NEXT(iter_node,node); // find preceding node
+					SLIST_INSERT_AFTER(iter_node,new_node,node); // insert at appropriate position
+				}
 			}
+		}
+		else
+		{
+			fprintf(stderr,"Join: Duplicate block received (ssn:%u) - discarding!\n",blk->ssn);
+			blk_free(blk);
 		}
 
 

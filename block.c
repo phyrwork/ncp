@@ -15,9 +15,7 @@ blk_t *blk_alloc(void)
 
 void blk_free(blk_t *blk)
 {
-	fprintf(stderr,"blk_free(): Starting block release...\n");
 	free(blk);
-	fprintf(stderr,"blk_free(): Released block structure.\n");
 }
 
 int init_blkq(blkq_t *queue)

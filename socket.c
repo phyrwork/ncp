@@ -82,7 +82,7 @@ int sock_recv(int sock, const char *buf, size_t len)
 	struct sctp_sndrcvinfo sndrcvinfo;
 	int flags;
 
-	return sctp_recvmsg(
+	int rc = sctp_recvmsg(
 		sock, //sd
 		(void *)buf, // msg
 		len, // len
@@ -91,6 +91,10 @@ int sock_recv(int sock, const char *buf, size_t len)
 		&sndrcvinfo, // sinfo
 		&flags // msg_flags
 	);
+
+	if(rc > 0) fprintf(stderr,"sctp_recvmsg(): ssn:%u\n",sndrcvinfo.sinfo_ssn);
+
+	return rc;
 }
 
 int sock_close(int sock)

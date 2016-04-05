@@ -32,8 +32,10 @@ void out_stream(void *arg)
 	int rp;
 	blk_t *blk;
 
+	fprintf(stderr,"Stream %lu: Waiting for data.\n",ctrl->thread.id);
 	while((rp = get_blk(ctrl->queue,&blk)) > 0) // get block from queue
 	{
+		fprintf(stderr,"Stream %lu: Block to send (ssn:%u,len:%u)\n",ctrl->thread.id,blk->ssn,blk->len);
 		int rc = sock_send(ctrl->sock,(char *)blk,sizeof(*blk) + blk->len);// send block via sock
 		blk_free(blk); // discard the block
 
