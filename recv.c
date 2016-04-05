@@ -1,27 +1,25 @@
-//#include "recv.h"
+#include "recv.h"
 //#include "pipe.h"
-//#include "thread.h"
+#include "thread.h"
 //#include "event.h"
-//#include "block.h"
+#include "block.h"
 //#include <stdio.h>
 //#include <stdlib.h>
 //#include "queue.h"
 //#include <errno.h>
 //#include "config.h"
 
-//typedef struct {
-//	thread_t thread;
-//	unsigned long addr;
-//	unsigned short port;
-//	blkqueue_t queue;
-//} stream_ctrl_t;
-//
-//typedef struct {
-//	thread_t thread;
-//	unsigned char num_sockets;
-//	int *socket;
-//} join_ctrl_t;
-//
+typedef struct {
+	thread_t thread;
+	blkq_t queue;
+	int socket;
+} out_ctrl_t;
+
+typedef struct {
+	thread_t thread;
+	blkq_t queue;
+} join_ctrl_t;
+
 //struct blk_node_s{
 //	SLIST_ENTRY(blk_node_s) node;
 //	blk_t *blk;
@@ -171,6 +169,7 @@ void join(void *arg)
 
 int ncp_recv(int argc, char *argv[])
 {
+	configure_recv(argc,argv);
 	return 0;
 }
 

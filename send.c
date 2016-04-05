@@ -1,14 +1,12 @@
 #include "send.h"
 #include "thread.h"
 #include "block.h"
+#include "config.h"
 
 //#include "pipe.h"
-
 //#include "event.h"
-
 //#include <stdlib.h>
 //#include <stdio.h>
-
 //#include "config.h"
 //#include <errno.h>
 //#include <netdb.h>
@@ -17,13 +15,12 @@ typedef struct {
 	thread_t thread;
 	blkq_t queue;
 	int socket;
-} stream_ctrl_t;
+} out_ctrl_t;
 
-//typedef struct {
-//	thread_t thread;
-//} split_ctrl_t;
-//
-//static ssn_t ssn_next = 0;
+typedef struct {
+	thread_t thread;
+	blkq_t queue;
+} split_ctrl_t;
 
 void out_stream(void *arg)
 {
@@ -128,6 +125,7 @@ void split(void *arg)
 
 int ncp_send(int argc, char *argv[])
 {
+	configure_send(argc,argv);
 	return 0;
 }
 

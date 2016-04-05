@@ -12,7 +12,7 @@
 #include <netinet/sctp.h>
 #include <arpa/inet.h>
 
-int sock_bind(unsigned short port)
+int sock_listen(unsigned short port)
 {
 	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
 	if(sock == -1) return -1;
@@ -26,19 +26,19 @@ int sock_bind(unsigned short port)
 	int rc = bind(sock, (struct sockaddr *) &server, sizeof(server));
 	if(rc == -1) return -1;
 
+	struct sctp_initmsg initmsg;
+	bzero((void *)&initmsg, sizeof(initmsg));
+	initmsg.sinit_num_ostreams = 1;
+	initmsg.sinit_max_instreams = 1;
+	rc = setsockopt(sock, IPPROTO_SCTP, SCTP_INITMSG, &initmsg, sizeof(initmsg));
+
+	listen(sock,1);
+
 	return sock;
 }
 
 int sock_accept(int sock)
 {
-	struct sctp_initmsg initmsg;
-	bzero((void *)&initmsg, sizeof(initmsg));
-	initmsg.sinit_num_ostreams = 1;
-	initmsg.sinit_max_instreams = 1;
-	int rc = setsockopt(sock, IPPROTO_SCTP, SCTP_INITMSG, &initmsg, sizeof(initmsg));
-
-	listen(sock,1);
-
 	sock = accept(sock, (struct sockaddr *)NULL, NULL);
 	if(sock == -1) return -1;
 	else return sock;

@@ -7,7 +7,7 @@
 #define EBIND 1
 #define EABORT 2
 
-int sock_bind(unsigned short port);
+int sock_listen(unsigned short port);
 int sock_accept(int sock);
 int sock_connect(unsigned long long addr, unsigned short port);
 
