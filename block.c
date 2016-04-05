@@ -7,15 +7,8 @@ blk_t *blk_alloc(void)
 {
 	blk_t *blk;
 
-	blk = malloc(sizeof(blk_t));
+	blk = malloc(sizeof(*blk) + BLEN_DEFAULT);
 	if(!blk) return 0; // block structure not allocated
-
-	blk->data = malloc(BLEN_DEFAULT);
-	if(!blk->data) // block data not allocated
-	{
-		free(blk);
-		return 0;
-	}
 
 	return blk;
 }
@@ -23,8 +16,6 @@ blk_t *blk_alloc(void)
 void blk_free(blk_t *blk)
 {
 	fprintf(stderr,"blk_free(): Starting block release...\n");
-	free(blk->data);
-	fprintf(stderr,"blk_free(): Released block data.\n");
 	free(blk);
 	fprintf(stderr,"blk_free(): Released block structure.\n");
 }

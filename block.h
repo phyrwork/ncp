@@ -15,7 +15,7 @@ typedef uint32_t blen_t;
 typedef struct {
 	ssn_t ssn;
 	blen_t len;
-	uint8_t *data;
+	uint8_t data[];
 } blk_t;
 
 typedef struct {
