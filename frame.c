@@ -12,15 +12,10 @@
 int fbuf_init(fbuf_t *fbuf, int sock, size_t size)
 {
 	/* initialise ring buffer */
-	fprintf(stderr,"Requested buffer size: %lu\n",size);
-	fprintf(stderr,"SIZEOF_COBS_MAX(%lu): %lu\n",size,SIZEOF_COBS_MAX(size));
 	size = 1 + SIZEOF_COBS_MAX(size); // extend requested buffer size to fit worst case COBS size
 	unsigned char *buf = malloc(SIZEOF_COBS_MAX(size)); // allocate buffer memory
 	if(buf == 0) return -1;
-	fprintf(stderr,"Allocated buffer size: %lu\n",size);
 	rbuf_init(&fbuf->rbuf,buf,size);
-	fprintf(stderr,"fbuf->rbuf.size: %u\n",fbuf->rbuf.size);
-	fprintf(stderr,"rbuf_available(): %u\n",rbuf_available(&fbuf->rbuf));
 	fbuf->rbuf.mode = RBUF_MODE_BLOCKING; // don't overwrite data
 
 	/* initialise frame buffer params */
@@ -38,22 +33,23 @@ int get_frame(fbuf_t *fbuf, void *buf, size_t len)
 		int rc;
 		if((rc = rbuf_find(&fbuf->rbuf,0)) >= 0)
 		{
-			// fprintf(stderr,"get_frame(): Frame boundary found @ pos:%u\n",rc);
+			fprintf(stderr,"get_frame(): Frame boundary found @ pos:%u\n",rc);
 			rc = rc + 1; // read amount is position found + 1
 
 			/* decode frame */
 			unsigned char *in_tmp = malloc(rc); // allocate cobs_in buffer
-			if(in_tmp == 0) return -1;
+			if(in_tmp == 0) { fprintf(stderr,"Out of memory: exiting!"); exit(0); };
 			rbuf_read(&fbuf->rbuf,in_tmp,rc); // get coded frame
 
 			unsigned char *out_tmp = malloc(rc); // allocate cobs_out buffer - not possible to be larger than input so allocate same size
-			if(out_tmp == 0) { free(in_tmp); return -1; }
+			if(out_tmp == 0) { fprintf(stderr,"Out of memory: exiting!"); exit(0); }
 			rc = cobs_decode(in_tmp,rc,out_tmp); // get decoded frame
 			free(in_tmp);
-			if(rc == 0) { free(out_tmp); return -1; } // error decoding frame
+			if(rc == 0) { fprintf(stderr,"Error decoding frame: exiting!"); exit(0); } // error decoding frame
 
 			/* output frame */
-			if(rc > len) { free(out_tmp); return -1; } // frame is too big for buffer
+			rc = rc-1; // ignore trailing zero
+			if(rc > len) { fprintf(stderr,"Error - frame (%d) is larger than buffer (%lu): exiting!",rc,len); exit(0); } // frame is too big for buffer
 			memcpy(buf,out_tmp,rc);
 			free(out_tmp);
 
@@ -70,7 +66,6 @@ int get_frame(fbuf_t *fbuf, void *buf, size_t len)
 
 			fprintf(stderr,"get_frame(): reading up to %lu additional bytes from socket...",avail);
 			rc = read(fbuf->sock,in_tmp,avail); // read the data
-			fprintf(stderr,"READ:%d\n",rc);
 
 			if(rc <= 0) // error or EOF
 			{
@@ -83,14 +78,14 @@ int get_frame(fbuf_t *fbuf, void *buf, size_t len)
 				}
 				if(rc < 0)
 				{
-					// fprintf(stderr," error!\n");
+					fprintf(stderr," error!\n");
 					return rc; // some error
 				}
 			}
 			fprintf(stderr," read %d bytes.\n",rc);
 
 			/* add the data to the ring buffer */
-			rbuf_write(&fbuf->rbuf,in_tmp,rc);
+			fprintf(stderr,"Wrote %d bytes to buffer.\n",rbuf_write(&fbuf->rbuf,in_tmp,rc));
 			free(in_tmp); // release buffer
 
 			// go back and look for the end of a frame
@@ -101,12 +96,12 @@ int get_frame(fbuf_t *fbuf, void *buf, size_t len)
 
 int put_frame(fbuf_t *fbuf, void *buf, size_t len)
 {
-	fprintf(stderr,"put_frame(): Data in: (%lu) ",len);
-	for (size_t i=0;i<len;++i)
-	{
-		fprintf(stderr,"%u ",((unsigned char *)buf)[i]);
-	}
-	fprintf(stderr,"\n");
+//	fprintf(stderr,"put_frame(): Data in: (%lu) ",len);
+//	for (size_t i=0;i<len;++i)
+//	{
+//		fprintf(stderr,"%u ",((unsigned char *)buf)[i]);
+//	}
+//	fprintf(stderr,"\n");
 
 	/* cobs encode */
 	unsigned char *tmp = malloc(SIZEOF_COBS_MAX(len));
@@ -114,12 +109,12 @@ int put_frame(fbuf_t *fbuf, void *buf, size_t len)
 	int rc = cobs_encode(buf,len,tmp);
 	tmp[rc++] = 0; // add delimiter
 
-	fprintf(stderr,"put_frame(): Data out: (%d) ",rc);
-	for (size_t i=0;i<rc;++i)
-	{
-		fprintf(stderr,"%u ",((unsigned char *)tmp)[i]);
-	}
-	fprintf(stderr,"\n");
+//	fprintf(stderr,"put_frame(): Data out: (%d) ",rc);
+//	for (size_t i=0;i<rc;++i)
+//	{
+//		fprintf(stderr,"%u ",((unsigned char *)tmp)[i]);
+//	}
+//	fprintf(stderr,"\n");
 
 	rc = write(fbuf->sock,tmp,rc);
 	fprintf(stderr,"put_frame(): rc:%d, errno:%d\n",rc,errno);

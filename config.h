@@ -3,7 +3,7 @@
 
 #include "block.h"
 
-#define NUM_PORTS_DEFAULT 1
+#define NUM_PORTS_DEFAULT 4
 #define NUM_PORTS_MAX 32
 #define BASE_PORT_DEFAULT 61300
 
