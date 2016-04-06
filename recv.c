@@ -6,6 +6,7 @@
 #include "queue.h"
 #include "config.h"
 #include "socket.h"
+#include "frame.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -87,12 +88,17 @@ void in_stream(void *arg)
 	in_ctrl_t *ctrl = (in_ctrl_t*) arg;
 
 
+	/* initialise frame buffer */
+	fbuf_t fbuf; // initialise frame buffer
+	fbuf_init(&fbuf,ctrl->sock,BLEN_DEFAULT);
+
+
 	/* read from socket until closed or error */
 	int rc;
 	blk_t *blk = blk_alloc();
 
 	fprintf(stderr,"Stream %lu: Waiting for data.\n",ctrl->thread.id);
-	while((rc = sock_recv(ctrl->sock,(char *)blk,sizeof(*blk) + BLEN_DEFAULT)) > 0)
+	while((rc = get_frame(&fbuf,(char *)blk,sizeof(*blk) + BLEN_DEFAULT)) > 0)
 	{
 		// fprintf(stderr,"Stream %lu: Block received (rc:%d, ssn:%u,len:%u)\n",ctrl->thread.id,rc,blk->ssn,blk->len);
 		int rp = put_blk(ctrl->queue,blk); // add block to queue
@@ -100,7 +106,7 @@ void in_stream(void *arg)
 
 		if(rp <= 0) { notify(ctrl->thread,EPIPE); break; } // check for pipe errors
 
-		sleep(1);
+		// sleep(1);
 	}
 	if(rc == 0)
 	{
@@ -150,22 +156,6 @@ void join(void *arg)
 
 			/* ordered insert */
 			sorted_insert(&blk_cache,new_node);
-		}
-
-		// debug
-		if(!SLIST_EMPTY(&blk_cache))
-		{
-			fprintf(stderr,"Join: Blocks in list - ");
-			blk_node_t *iter_node = SLIST_FIRST(&blk_cache);
-
-			fprintf(stderr,"%u ",iter_node->blk->ssn);
-			while(SLIST_NEXT(iter_node,node) != NULL)
-			{
-				iter_node = SLIST_NEXT(iter_node,node);
-				fprintf(stderr,"%u ",iter_node->blk->ssn);
-			}
-
-			fprintf(stderr,"\n");
 		}
 
 

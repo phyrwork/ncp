@@ -10,7 +10,7 @@
 int fbuf_init(fbuf_t *fbuf, int sock, size_t size)
 {
 	/* initialise ring buffer */
-	unsigned char *buf = malloc(size); // allocate buffer memory
+	unsigned char *buf = malloc(SIZEOF_COBS_MAX(size)); // allocate buffer memory
 	if(buf == 0) return -1;
 	rbuf_init(&fbuf->rbuf,buf,size);
 	fbuf->rbuf.mode = RBUF_MODE_BLOCKING; // don't overwrite data

@@ -1,5 +1,6 @@
 #include "config.h"
 #include "socket.h"
+#include "frame.h"
 
 #include <stdio.h>
 #include <netdb.h>
@@ -61,7 +62,17 @@ int configure_send(int argc, char *argv[], conf_t *conf)
 		bcopy((char *)server->h_addr,(char *) &caddr,server->h_length);
 		caddr = ntohl(caddr);
 	}
+	fprintf(stderr,"Connecting to server...");
 	int csock = sock_connect(caddr, cport);
+	if(csock == -1)
+	{
+		fprintf(stderr," failed!: exiting.\n");
+		exit(0);
+	}
+	else fprintf(stderr," done!\n");
+
+	fbuf_t fbuf; // initialise frame buffer
+	fbuf_init(&fbuf,csock,BLEN_DEFAULT);
 
 	/* negotiate connection options */
 	neg_t *opt = malloc(SIZEOF_NEG_T(NUM_PORTS_MAX)); // initialize option structure
@@ -71,12 +82,12 @@ int configure_send(int argc, char *argv[], conf_t *conf)
 	opt->port[0] = 0;
 
 	fprintf(stderr,"Sending configuration request...\n");
-	sock_send(csock,(char *)opt,SIZEOF_NEG_T(0)); // send configuration request
+	put_frame(&fbuf,(char *)opt,SIZEOF_NEG_T(0)); // send configuration request
 
 	while(opt->ack != ACK) // negotiate until configuration accepted
 	{
 		fprintf(stderr,"Waiting for configuration response...\n");
-		sock_recv(csock,(char *)opt,SIZEOF_NEG_T(NUM_PORTS_MAX)); // wait for configuration response
+		get_frame(&fbuf,(char *)opt,SIZEOF_NEG_T(NUM_PORTS_MAX)); // wait for configuration response
 		fprintf(stderr,"...received!\n");
 
 		switch(opt->ack)
@@ -114,8 +125,25 @@ int configure_recv(int argc, char *argv[], conf_t *conf)
 {
 	/* configure negotiation connection */
 	unsigned short cport = atoi(argv[argc-1]);
+	fprintf(stderr,"Opening port...");
 	int csock = sock_listen(cport);
+	if(csock == -1)
+	{
+		fprintf(stderr," failed!: exiting.\n");
+		exit(0);
+	}
+	else fprintf(stderr," done!\n");
+	fprintf(stderr,"Waiting for client...");
 	csock = sock_accept(csock);
+	if(csock == -1)
+	{
+		fprintf(stderr," failed!: exiting.\n");
+		exit(0);
+	}
+	else fprintf(stderr," done!\n");
+
+	fbuf_t fbuf; // initialise frame buffer
+	fbuf_init(&fbuf,csock,BLEN_DEFAULT);
 
 	/* negotiate connection options */
 	conf->socks.len = 0; // initialize sock list
@@ -126,7 +154,7 @@ int configure_recv(int argc, char *argv[], conf_t *conf)
 	while(opt->ack != ACK) // negotiate until configuration accepted
 	{
 		fprintf(stderr,"Waiting for configuration response...\n");
-		sock_recv(csock,(char *)opt,SIZEOF_NEG_T(NUM_PORTS_MAX)); // wait for configuration response
+		get_frame(&fbuf,(char *)opt,SIZEOF_NEG_T(NUM_PORTS_MAX)); // wait for configuration response
 		fprintf(stderr,"...received!\n");
 
 		/* examine response */
@@ -176,7 +204,7 @@ int configure_recv(int argc, char *argv[], conf_t *conf)
 		}
 
 		/* transmit reponse */
-		sock_send(csock,(char *)opt,SIZEOF_NEG_T(opt->streams));
+		put_frame(&fbuf,(char *)opt,SIZEOF_NEG_T(opt->streams));
 	}
 
 	/* complete socket connections */

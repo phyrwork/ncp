@@ -5,6 +5,7 @@
 #include "pipe.h"
 #include "event.h"
 #include "socket.h"
+#include "frame.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -28,6 +29,11 @@ void out_stream(void *arg)
 	out_ctrl_t *ctrl = (out_ctrl_t*) arg;
 
 
+	/* initialise frame buffer */
+	fbuf_t fbuf; // initialise frame buffer
+	fbuf_init(&fbuf,ctrl->sock,BLEN_DEFAULT);
+
+
 	/* write to socket until pipe closed or error */
 	int rp;
 	blk_t *blk;
@@ -36,7 +42,7 @@ void out_stream(void *arg)
 	while((rp = get_blk(ctrl->queue,&blk)) > 0) // get block from queue
 	{
 		fprintf(stderr,"Stream %lu: Block to send (ssn:%u,len:%u)\n",ctrl->thread.id,blk->ssn,blk->len);
-		int rc = sock_send(ctrl->sock,(char *)blk,sizeof(*blk) + blk->len);// send block via sock
+		int rc = put_frame(&fbuf,(char *)blk,sizeof(*blk) + blk->len);// send block via sock
 		fprintf(stderr,"Stream %lu: Block sent (ssn:%u)\n",ctrl->thread.id,blk->ssn);
 
 		blk_free(blk); // discard the block
