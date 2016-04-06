@@ -43,7 +43,6 @@ void sorted_insert(blk_cache_t *head,blk_node_t *new_node)
 	/* if list is empty or new is smaller than head - insert at head */
 	if(SLIST_FIRST(head) == NULL)
 	{
-		fprintf(stderr,"list empty\n");
 		SLIST_INSERT_HEAD(head,new_node,node);
 	}
 	else if(SLIST_FIRST(head)->blk->ssn > new_node->blk->ssn)
@@ -100,7 +99,7 @@ void in_stream(void *arg)
 	fprintf(stderr,"Stream %lu: Waiting for data.\n",ctrl->thread.id);
 	while((rc = get_frame(&fbuf,(char *)blk,sizeof(*blk) + BLEN_DEFAULT)) > 0)
 	{
-		// fprintf(stderr,"Stream %lu: Block received (rc:%d, ssn:%u,len:%u)\n",ctrl->thread.id,rc,blk->ssn,blk->len);
+		fprintf(stderr,"Stream %lu: Block received (rc:%d, ssn:%u,len:%u)\n",ctrl->thread.id,rc,blk->ssn,blk->len);
 		int rp = put_blk(ctrl->queue,blk); // add block to queue
 		blk = blk_alloc(); // get an empty block
 
