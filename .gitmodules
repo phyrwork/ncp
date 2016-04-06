@@ -1,0 +1,3 @@
+[submodule "lib/cobs"]
+	path = lib/cobs
+	url = https://phyrwork@github.com/jacquesf/COBS-Consistent-Overhead-Byte-Stuffing.git
