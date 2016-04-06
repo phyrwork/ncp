@@ -142,8 +142,15 @@ int configure_recv(int argc, char *argv[], conf_t *conf)
 	}
 	else fprintf(stderr," done!\n");
 
+	fprintf(stderr,"Initialising frame buffer...");
 	fbuf_t fbuf; // initialise frame buffer
-	fbuf_init(&fbuf,csock,BLEN_DEFAULT);
+	int rc = fbuf_init(&fbuf,csock,BLEN_DEFAULT);
+	if(rc < 0)
+	{
+		fprintf(stderr," failed!: exiting.\n");
+		exit(0);
+	}
+	else fprintf(stderr," done!\n");
 
 	/* negotiate connection options */
 	conf->socks.len = 0; // initialize sock list
@@ -153,9 +160,14 @@ int configure_recv(int argc, char *argv[], conf_t *conf)
 
 	while(opt->ack != ACK) // negotiate until configuration accepted
 	{
-		fprintf(stderr,"Waiting for configuration response...\n");
-		get_frame(&fbuf,(char *)opt,SIZEOF_NEG_T(NUM_PORTS_MAX)); // wait for configuration response
-		fprintf(stderr,"...received!\n");
+		fprintf(stderr,"Waiting for configuration response...");
+		rc = get_frame(&fbuf,(char *)opt,SIZEOF_NEG_T(NUM_PORTS_MAX)); // wait for configuration response
+		if(rc <= 0)
+		{
+			fprintf(stderr," error!: exiting.\n");
+			exit(0);
+		}
+		fprintf(stderr," received!\n");
 
 		/* examine response */
 		size_t n = 0;
