@@ -90,7 +90,7 @@ void in_stream(void *arg)
 
 	/* initialise frame buffer */
 	fbuf_t fbuf; // initialise frame buffer
-	fbuf_init(&fbuf,ctrl->sock,BLEN_DEFAULT);
+	fbuf_init(&fbuf,ctrl->sock,sizeof(blk_t) + BLEN_DEFAULT);
 
 
 	/* read from socket until closed or error */

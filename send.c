@@ -31,7 +31,7 @@ void out_stream(void *arg)
 
 	/* initialise frame buffer */
 	fbuf_t fbuf; // initialise frame buffer
-	fbuf_init(&fbuf,ctrl->sock,BLEN_DEFAULT);
+	fbuf_init(&fbuf,ctrl->sock,sizeof(blk_t) + BLEN_DEFAULT);
 
 
 	/* write to socket until pipe closed or error */
@@ -41,16 +41,16 @@ void out_stream(void *arg)
 	fprintf(stderr,"Stream %lu: Waiting for data.\n",ctrl->thread.id);
 	while((rp = get_blk(ctrl->queue,&blk)) > 0) // get block from queue
 	{
-		fprintf(stderr,"Stream %lu: Block to send (ssn:%u,len:%u)\n",ctrl->thread.id,blk->ssn,blk->len);
-		int rc = put_frame(&fbuf,(char *)blk,sizeof(*blk) + blk->len);// send block via sock
+		// fprintf(stderr,"Stream %lu: Block to send (ssn:%u,len:%u)\n",ctrl->thread.id,blk->ssn,blk->len);
+		int rc = put_frame(&fbuf,(char *)blk,sizeof(*blk) + blk->len); // send block via sock
 		fprintf(stderr,"Stream %lu: Block sent (ssn:%u)\n",ctrl->thread.id,blk->ssn);
 
 		blk_free(blk); // discard the block
-		fprintf(stderr,"Stream %lu: Block discarded.\n",ctrl->thread.id);
+		// fprintf(stderr,"Stream %lu: Block discarded.\n",ctrl->thread.id);
 
 		if(rc <= 0) { notify(ctrl->thread,ESOCK); break; } // check for sock errors
 	}
-	if(rp == 0) sock_close(ctrl->sock); // no more data - close socket
+	if(rp == 0) {} // sock_close(ctrl->sock); // no more data - close socket
 	else notify(ctrl->thread,EPIPE);
 
 
@@ -72,7 +72,7 @@ void split(void *arg)
 	fprintf(stderr,"Split: Waiting for data.\n");
 	while((rc = read(STDIN_FILENO,blk->data,BLEN_DEFAULT)) > 0)
 	{
-		fprintf(stderr,"Split: Block received - adding metadata.\n");
+		// fprintf(stderr,"Split: Block received - adding metadata.\n");
 		blk->ssn = ssn_next++;
 		blk->len = rc;
 
@@ -80,7 +80,7 @@ void split(void *arg)
 		fprintf(stderr,"Split: Block added to queue (ssn:%u, len:%u).\n",blk->ssn,blk->len);
 
 		blk = blk_alloc(); // allocate a new buffer block
-		fprintf(stderr,"Split: Allocated a new buffer block.\n",blk->ssn,blk->len);
+		// fprintf(stderr,"Split: Allocated a new buffer block.\n",blk->ssn,blk->len);
 	}
 
 	/* examine reason for stdin read break */

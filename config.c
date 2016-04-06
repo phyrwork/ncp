@@ -72,7 +72,7 @@ int configure_send(int argc, char *argv[], conf_t *conf)
 	else fprintf(stderr," done!\n");
 
 	fbuf_t fbuf; // initialise frame buffer
-	fbuf_init(&fbuf,csock,BLEN_DEFAULT);
+	fbuf_init(&fbuf,csock,sizeof(blk_t) + BLEN_DEFAULT);
 
 	/* negotiate connection options */
 	neg_t *opt = malloc(SIZEOF_NEG_T(NUM_PORTS_MAX)); // initialize option structure
@@ -114,6 +114,7 @@ int configure_send(int argc, char *argv[], conf_t *conf)
 	{
 		fprintf(stderr," %d",opt->port[n]);
 		conf->socks.sock[n] = sock_connect(caddr,opt->port[n]);
+		if(conf->socks.sock[n] == -1) fprintf(stderr,"(e!)");
 	}
 	conf->socks.len = opt->streams;
 	fprintf(stderr,"... done!\n");
@@ -144,7 +145,7 @@ int configure_recv(int argc, char *argv[], conf_t *conf)
 
 	fprintf(stderr,"Initialising frame buffer...");
 	fbuf_t fbuf; // initialise frame buffer
-	int rc = fbuf_init(&fbuf,csock,BLEN_DEFAULT);
+	int rc = fbuf_init(&fbuf,csock,sizeof(blk_t) + BLEN_DEFAULT);
 	if(rc < 0)
 	{
 		fprintf(stderr," failed!: exiting.\n");
@@ -222,7 +223,9 @@ int configure_recv(int argc, char *argv[], conf_t *conf)
 	/* complete socket connections */
 	fprintf(stderr,"Waiting for socket connections...");
 	for(size_t n=0; n<conf->socks.len; ++n)
+	{
 		conf->socks.sock[n] = sock_accept(conf->socks.sock[n]);
+	}
 	fprintf(stderr,"... done!\n");
 
 	return 0;

@@ -4,16 +4,23 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <errno.h>
 
 #define CEILING(x,y) ((x % y) ? x / y + 1 : x / y)
-#define SIZEOF_COBS_MAX(in) (in + CEILING(in,255))
+#define SIZEOF_COBS_MAX(in) (1 + in + CEILING(in,255))
 
 int fbuf_init(fbuf_t *fbuf, int sock, size_t size)
 {
 	/* initialise ring buffer */
+	fprintf(stderr,"Requested buffer size: %lu\n",size);
+	fprintf(stderr,"SIZEOF_COBS_MAX(%lu): %lu\n",size,SIZEOF_COBS_MAX(size));
+	size = 1 + SIZEOF_COBS_MAX(size); // extend requested buffer size to fit worst case COBS size
 	unsigned char *buf = malloc(SIZEOF_COBS_MAX(size)); // allocate buffer memory
 	if(buf == 0) return -1;
+	fprintf(stderr,"Allocated buffer size: %lu\n",size);
 	rbuf_init(&fbuf->rbuf,buf,size);
+	fprintf(stderr,"fbuf->rbuf.size: %u\n",fbuf->rbuf.size);
+	fprintf(stderr,"rbuf_available(): %u\n",rbuf_available(&fbuf->rbuf));
 	fbuf->rbuf.mode = RBUF_MODE_BLOCKING; // don't overwrite data
 
 	/* initialise frame buffer params */
@@ -27,11 +34,11 @@ int get_frame(fbuf_t *fbuf, void *buf, size_t len)
 	while(1)
 	{
 		/* look for a frame in the buffer */
-		fprintf(stderr,"get_frame(): looking for frame boundary.\n");
+		// fprintf(stderr,"get_frame(): looking for frame boundary.\n");
 		int rc;
 		if((rc = rbuf_find(&fbuf->rbuf,0)) >= 0)
 		{
-			fprintf(stderr,"get_frame(): Frame boundary found @ pos:%u\n",rc);
+			// fprintf(stderr,"get_frame(): Frame boundary found @ pos:%u\n",rc);
 			rc = rc + 1; // read amount is position found + 1
 
 			/* decode frame */
@@ -63,23 +70,28 @@ int get_frame(fbuf_t *fbuf, void *buf, size_t len)
 
 			fprintf(stderr,"get_frame(): reading up to %lu additional bytes from socket...",avail);
 			rc = read(fbuf->sock,in_tmp,avail); // read the data
+			fprintf(stderr,"READ:%d\n",rc);
 
-			if(rc < 1) // error or EOF
+			if(rc <= 0) // error or EOF
 			{
 				free(in_tmp); // free resources
 
 				if(rc == 0)
 				{
-					fprintf(stderr," EOF!: socket is closed.\n");
+					fprintf(stderr,"get_frame(): EOF!\n");
 					return 0; // no more data - can't complete current frame so abandon
 				}
 				if(rc < 0)
 				{
-					fprintf(stderr," error!\n");
+					// fprintf(stderr," error!\n");
 					return rc; // some error
 				}
 			}
 			fprintf(stderr," read %d bytes.\n",rc);
+
+			/* add the data to the ring buffer */
+			rbuf_write(&fbuf->rbuf,in_tmp,rc);
+			free(in_tmp); // release buffer
 
 			// go back and look for the end of a frame
 		}
@@ -110,6 +122,7 @@ int put_frame(fbuf_t *fbuf, void *buf, size_t len)
 	fprintf(stderr,"\n");
 
 	rc = write(fbuf->sock,tmp,rc);
+	fprintf(stderr,"put_frame(): rc:%d, errno:%d\n",rc,errno);
 	free(tmp);
 
 	return rc;
