@@ -3,9 +3,9 @@
 
 #include "block.h"
 
-#define NUM_PORTS_DEFAULT 4
+#define NUM_PORTS_DEFAULT 8
 #define NUM_PORTS_MAX 32
-#define BASE_PORT_DEFAULT 61300
+#define BASE_PORT_DEFAULT 23000
 
 typedef struct {
 	unsigned short len;

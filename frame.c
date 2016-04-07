@@ -29,7 +29,7 @@ int get_frame(fbuf_t *fbuf, void *buf, size_t len)
 	while(1)
 	{
 		/* look for a frame in the buffer */
-		// fprintf(stderr,"get_frame(): looking for frame boundary.\n");
+		// fprintf(stderr,"get_frame(): Looking for frame boundary.\n");
 		int rc;
 		if((rc = rbuf_find(&fbuf->rbuf,0)) >= 0)
 		{
@@ -64,7 +64,7 @@ int get_frame(fbuf_t *fbuf, void *buf, size_t len)
 			unsigned char *in_tmp = malloc(avail);
 			if(in_tmp == 0) return -1;
 
-			// fprintf(stderr,"get_frame(): reading up to %lu additional bytes from socket...",avail);
+			// fprintf(stderr,"get_frame(): Reading up to %lu additional bytes from socket...",avail);
 			rc = read(fbuf->sock,in_tmp,avail); // read the data
 
 			if(rc <= 0) // error or EOF
@@ -73,12 +73,12 @@ int get_frame(fbuf_t *fbuf, void *buf, size_t len)
 
 				if(rc == 0)
 				{
-					// fprintf(stderr,"get_frame(): EOF!\n");
+					fprintf(stderr,"get_frame(): EOF!\n");
 					return 0; // no more data - can't complete current frame so abandon
 				}
 				if(rc < 0)
 				{
-					// fprintf(stderr," error!\n");
+					fprintf(stderr," error!\n");
 					return rc; // some error
 				}
 			}

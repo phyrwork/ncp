@@ -99,7 +99,7 @@ void in_stream(void *arg)
 	fprintf(stderr,"Stream %lu: Waiting for data.\n",ctrl->thread.id);
 	while((rc = get_frame(&fbuf,(char *)blk,sizeof(*blk) + BLEN_DEFAULT)) > 0)
 	{
-		fprintf(stderr,"Stream %lu: Block received (rc:%d, ssn:%u,len:%u)\n",ctrl->thread.id,rc,blk->ssn,blk->len);
+		// fprintf(stderr,"Stream %lu: Block received (rc:%d, ssn:%u,len:%u)\n",ctrl->thread.id,rc,blk->ssn,blk->len);
 		int rp = put_blk(ctrl->queue,blk); // add block to queue
 		blk = blk_alloc(); // get an empty block
 
@@ -142,12 +142,12 @@ void join(void *arg)
 		/* add to block list in ordered position */
 		if(blk->ssn < ssn_next)
 		{
-			fprintf(stderr,"Join: Duplicate block received (ssn_next:%u, ssn:%u) - discarding!\n",ssn_next,blk->ssn);
+			// fprintf(stderr,"Join: Duplicate block received (ssn_next:%u, ssn:%u) - discarding!\n",ssn_next,blk->ssn);
 			blk_free(blk);
 		}
 		else
 		{
-			fprintf(stderr,"Join: New block received (ssn:%u)\n",blk->ssn);
+			// fprintf(stderr,"Join: New block received (ssn:%u)\n",blk->ssn);
 
 			/* initialize new node */
 			blk_node_t *new_node = malloc(sizeof(*new_node));
@@ -159,14 +159,14 @@ void join(void *arg)
 
 
 		/* write out any appropriate blocks */
-		fprintf(stderr,"Join: Looking for blocks to write.\n");
+		// fprintf(stderr,"Join: Looking for blocks to write.\n");
 		while(!SLIST_EMPTY(&blk_cache) && SLIST_FIRST(&blk_cache)->blk->ssn == ssn_next)
 		{
 			blk_node_t *node = SLIST_FIRST(&blk_cache);
 
 			/* output the block */
 			write(STDOUT_FILENO,node->blk->data,node->blk->len);
-			fprintf(stderr,"Join: Wrote out a block (ssn:%u)\n",ssn_next);
+			// fprintf(stderr,"Join: Wrote out a block (ssn:%u)\n",ssn_next);
 			++ssn_next; // advance sequence number
 
 			/* free block resources */

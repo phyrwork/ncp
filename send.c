@@ -9,7 +9,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-//#include <errno.h>
+#include <errno.h>
 //#include <netdb.h>
 
 typedef struct {
@@ -22,6 +22,24 @@ typedef struct {
 	thread_t thread;
 	blkq_t queue;
 } split_ctrl_t;
+
+int readall(int fd, void *buf, size_t len)
+{
+	int rc;
+	size_t rtot = 0;
+	size_t rrem = len;
+
+	while(rrem > 0 && (rc = read(fd,buf,rrem)) > 0)
+	{
+		rtot += rc; // advance bytes read counter
+		rrem -= rc; // subtract bytes remaining
+		buf += rc; // advance buffer pointer
+	}
+
+	if(rc == 0 && rtot == 0) return 0;
+	else if(rc < 0) return rc;
+	else return rtot;
+}
 
 void out_stream(void *arg)
 {
@@ -43,12 +61,12 @@ void out_stream(void *arg)
 	{
 		// fprintf(stderr,"Stream %lu: Block to send (ssn:%u,len:%u)\n",ctrl->thread.id,blk->ssn,blk->len);
 		int rc = put_frame(&fbuf,(char *)blk,sizeof(*blk) + blk->len); // send block via sock
-		fprintf(stderr,"Stream %lu: Block sent (ssn:%u)\n",ctrl->thread.id,blk->ssn);
+		// fprintf(stderr,"Stream %lu: Block sent (ssn:%u)\n",ctrl->thread.id,blk->ssn);
 
 		blk_free(blk); // discard the block
 		// fprintf(stderr,"Stream %lu: Block discarded.\n",ctrl->thread.id);
 
-		if(rc <= 0) { notify(ctrl->thread,ESOCK); break; } // check for sock errors
+		if(rc <= 0) { fprintf(stderr,"errno:-%d\n",errno); notify(ctrl->thread,ESOCK); break; } // check for sock errors
 	}
 	if(rp == 0) {} // sock_close(ctrl->sock); // no more data - close socket
 	else notify(ctrl->thread,EPIPE);
@@ -70,14 +88,14 @@ void split(void *arg)
 	blk_t *blk = blk_alloc();
 
 	fprintf(stderr,"Split: Waiting for data.\n");
-	while((rc = read(STDIN_FILENO,blk->data,BLEN_DEFAULT)) > 0)
+	while((rc = readall(STDIN_FILENO,blk->data,BLEN_DEFAULT)) > 0)
 	{
 		// fprintf(stderr,"Split: Block received - adding metadata.\n");
 		blk->ssn = ssn_next++;
 		blk->len = rc;
 
 		put_blk(ctrl->queue,blk); // add block to queue
-		fprintf(stderr,"Split: Block added to queue (ssn:%u, len:%u).\n",blk->ssn,blk->len);
+		// fprintf(stderr,"Split: Block added to queue (ssn:%u, len:%u).\n",blk->ssn,blk->len);
 
 		blk = blk_alloc(); // allocate a new buffer block
 		// fprintf(stderr,"Split: Allocated a new buffer block.\n",blk->ssn,blk->len);
@@ -92,7 +110,7 @@ void split(void *arg)
 	}
 	else if(rc < 0)
 	{
-		// should probably examine errno here
+		//
 	}
 
 

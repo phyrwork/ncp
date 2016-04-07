@@ -22,6 +22,25 @@ typedef struct {
 	unsigned short port[];
 } neg_t;
 
+long random_minmax(long min, long max)
+{
+	max = max - min; // get actual max for random number generation
+
+	unsigned long num_bins = (unsigned long)max + 1;
+	unsigned long num_rand = (unsigned long)RAND_MAX + 1;
+	unsigned long bin_size = num_rand / num_bins;
+	unsigned long defect   = num_rand % num_bins;
+
+	long x;
+	do
+	{
+		x = random();
+	}
+	while(num_rand - defect <= (unsigned long)x);
+
+	return min + (x/bin_size); // offset min by random number
+}
+
 int reserve_port(sock_list_t *socks)
 {
 	/* reserve memory */
@@ -38,8 +57,8 @@ int reserve_port(sock_list_t *socks)
 	}
 
 	/* reserve port */
-	static unsigned short port = BASE_PORT_DEFAULT;
-	socks->sock[socks->len] = sock_listen(++port);
+	unsigned short port = random_minmax(40000,65000);
+	socks->sock[socks->len] = sock_listen(port);
 
 	if(socks->sock[socks->len] == -1) return -1;
 	else ++socks->len;
