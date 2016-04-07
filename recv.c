@@ -103,7 +103,7 @@ void in_stream(void *arg)
 		int rp = put_blk(ctrl->queue,blk); // add block to queue
 		blk = blk_alloc(); // get an empty block
 
-		if(rp <= 0) { notify(ctrl->thread,EPIPE); break; } // check for pipe errors
+		if(rp <= 0) { notify(ctrl->thread,EPIP); break; } // check for pipe errors
 
 		// sleep(1);
 	}
@@ -257,7 +257,7 @@ int ncp_recv(int argc, char *argv[])
 		case OK:
 			exit(0);
 
-		case EPIPE:
+		case EPIP:
 			fprintf(stderr,"Main: Receive failed: Pipe error!\n");
 			exit(0);
 

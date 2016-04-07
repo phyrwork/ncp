@@ -172,7 +172,7 @@ int ncp_send(int argc, char *argv[])
 			// maybe we could join the send threads? need to re-think the graceful shutdown
 			exit(0);
 
-		case EPIPE:
+		case EPIP:
 			fprintf(stderr,"Send failed: Pipe error!\n");
 			exit(0);
 

@@ -27,12 +27,13 @@
 *.i*86
 *.x86_64
 *.hex
+ncp
 
 # Debug files
 *.dSYM/
 Debug/*
+Release/*
 
 # Project files
 .cproject
 .project
->>>>>>> Stashed changes

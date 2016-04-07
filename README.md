@@ -28,6 +28,12 @@ This is just a proof of concept/simple tool for me to use so there's a lot that 
 
 Issues:
 - selecting a block size greater than ~16K causes socket errors when attempting to transmit
+
+## Build
+From repository directory:
+```
+gcc -o ncp *c lib/cobs/cobs.c -lpthread
+```
  
 ## How it works
 1. Client and server 'negotiate' the connection

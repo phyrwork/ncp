@@ -6,7 +6,7 @@
 typedef enum {
 	OK,
 	ESOCK,
-	EPIPE,
+	EPIP,
 	ESPLIT,
 	EJOIN,
 	EMALLOC
