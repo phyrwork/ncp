@@ -9,7 +9,6 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <netinet/sctp.h>
 #include <arpa/inet.h>
 
 int sock_listen(unsigned short port)
