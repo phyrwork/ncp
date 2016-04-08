@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <strings.h>
 
+#define PORT_RES_MAX_ATTEMPTS 3
 #define SIZEOF_NEG_T(num_ports) (sizeof(neg_t) + (num_ports-1)*sizeof(unsigned short))
 
 typedef enum {
@@ -41,29 +42,59 @@ long random_minmax(long min, long max)
 	return min + (x/bin_size); // offset min by random number
 }
 
-int reserve_port(sock_list_t *socks)
+int reserve_ports(neg_t *opt, sock_list_t *socks)
 {
-	/* reserve memory */
-	if(socks->len == 0)
+	/* attempt to reserve as many ports as requested */
+	int attempts = 0;
+	while(socks->len < opt->streams && attempts < PORT_RES_MAX_ATTEMPTS)
 	{
-		socks->sock = malloc(sizeof(*socks->sock));
-		if(socks->sock == 0) return -1;
+		/* choose a new random port number that's not already in the list */
+		unsigned short new_port;
+		while(1)
+		{
+			new_port = random_minmax(40000,65000);
+
+			char exists = 0;
+			for(size_t i=0; i<opt->streams; ++i)
+			if(new_port == opt->port[i]) exists = 1;
+
+			if(exists == 0) break;
+		}
+
+		/* reserve the port */
+		int new_sock = sock_listen(new_port);
+		if(new_sock == -1) ++attempts; // failed - don't store
+		else // success, store
+		{
+			attempts = 0;
+
+			/* reserve memory */
+			if(socks->len == 0)
+			{
+				socks->sock = malloc(sizeof(*socks->sock));
+				if(socks->sock == 0) return -1;
+			}
+			else
+			{
+				void *ptr = realloc(socks->sock,(socks->len+1)*sizeof(*socks->sock));
+				if(ptr == 0) return -1;
+				else socks->sock = ptr;
+			}
+
+			/* record port and socket */
+			socks->sock[socks->len] = new_sock;
+			opt->port[socks->len++] = new_port;
+		}
 	}
-	else
+
+	/* validate number of ports reserved */
+	if(socks->len < opt->streams) // less than requested
 	{
-		void *ptr = realloc(socks->sock,(socks->len+1)*sizeof(*socks->sock));
-		if(ptr == 0) return -1;
-		else socks->sock = ptr;
+		opt->streams = socks->len;
+		return -1;
 	}
-
-	/* reserve port */
-	unsigned short port = random_minmax(40000,65000);
-	socks->sock[socks->len] = sock_listen(port);
-
-	if(socks->sock[socks->len] == -1) return -1;
-	else ++socks->len;
-
-	return port;
+	else // as requested
+		return 0;
 }
 
 int configure_send(int argc, char *argv[], conf_t *conf)
@@ -93,6 +124,7 @@ int configure_send(int argc, char *argv[], conf_t *conf)
 	fbuf_t fbuf; // initialise frame buffer
 	fbuf_init(&fbuf,csock,sizeof(blk_t) + BLEN_DEFAULT);
 
+
 	/* negotiate connection options */
 	neg_t *opt = malloc(SIZEOF_NEG_T(NUM_PORTS_MAX)); // initialize option structure
 	opt->ack = NACK;
@@ -100,14 +132,15 @@ int configure_send(int argc, char *argv[], conf_t *conf)
 	opt->streams = NUM_PORTS_DEFAULT;
 	opt->port[0] = 0;
 
-	fprintf(stderr,"Sending configuration request...\n");
+	fprintf(stderr,"Sending configuration request...");
 	put_frame(&fbuf,(char *)opt,SIZEOF_NEG_T(0)); // send configuration request
+	fprintf(stderr," done!\n");
 
 	while(opt->ack != ACK) // negotiate until configuration accepted
 	{
-		fprintf(stderr,"Waiting for configuration response...\n");
+		fprintf(stderr,"Waiting for configuration response...");
 		get_frame(&fbuf,(char *)opt,SIZEOF_NEG_T(NUM_PORTS_MAX)); // wait for configuration response
-		fprintf(stderr,"...received!\n");
+		fprintf(stderr," received!\n");
 
 		switch(opt->ack)
 		{
@@ -125,6 +158,7 @@ int configure_send(int argc, char *argv[], conf_t *conf)
 			exit(0);
 		}
 	}
+
 
 	/* connect sockets */
 	fprintf(stderr,"Connecting to sockets on ports");
@@ -172,6 +206,7 @@ int configure_recv(int argc, char *argv[], conf_t *conf)
 	}
 	else fprintf(stderr," done!\n");
 
+
 	/* negotiate connection options */
 	conf->socks.len = 0; // initialize sock list
 
@@ -182,50 +217,46 @@ int configure_recv(int argc, char *argv[], conf_t *conf)
 	{
 		fprintf(stderr,"Waiting for configuration response...");
 		rc = get_frame(&fbuf,(char *)opt,SIZEOF_NEG_T(NUM_PORTS_MAX)); // wait for configuration response
-		if(rc <= 0)
-		{
-			fprintf(stderr," error!: exiting.\n");
-			exit(0);
-		}
+		if(rc <= 0) { fprintf(stderr," error!: exiting.\n"); exit(0); }
 		fprintf(stderr," received!\n");
 
 		/* examine response */
-		size_t n = 0;
 		switch(opt->ack)
 		{
 		case NACK:
 			fprintf(stderr,"Client signalled 'NACK': configuring...\n");
 
+			opt->ack = ACK; // assume correct configuration - change flag to NACK if error
+
 			/* check requested blen */
 			// do nothing yet
 
 			/* attempt to reserve ports */
-			for (n=conf->socks.len;n<opt->streams;++n)
+			fprintf(stderr,"Reserving (%u) ports...",opt->streams);
+			rc = reserve_ports(opt,&conf->socks);
+			if(rc < 0) // verify number of reserved ports
 			{
-				fprintf(stderr,"Attempting to reserve a port...");
-				unsigned short port = reserve_port(&conf->socks);
-				if(port < 0)
-				{
-					fprintf(stderr," failed!\n");
-					break;
-				}
-				else opt->port[n] = port;
-				fprintf(stderr," success! (%d)\n",port);
-			}
-
-			/* verify number of reserved ports */
-			if(n < opt->streams)
-			{
-				fprintf(stderr,"Failed to reserve sufficient ports: signalling 'NACK'\n");
-
+				fprintf(stderr," failed! (%u)\n",opt->streams);
 				opt->ack = NACK;
-				opt->streams = n;
-
-				break;
 			}
+			else fprintf(stderr," done!\n");
 
-			fprintf(stderr,"All ports reserved successfully: signalling 'ACK'\n");
-			opt->ack = ACK;
+			/* transmit reponse */
+			switch(opt->ack)
+			{
+			case ACK:
+				fprintf(stderr,"Configuration succeeded! Transmitting 'ACK'.\n");
+				put_frame(&fbuf,(char *)opt,SIZEOF_NEG_T(opt->streams));
+				break;
+			case NACK:
+				fprintf(stderr,"Configuration failed! Transmitting 'NACK'.\n");
+				put_frame(&fbuf,(char *)opt,SIZEOF_NEG_T(opt->streams));
+				break;
+			case REJ:
+				fprintf(stderr,"Configuration failed!: Transmitting 'REJ' and exiting.\n");
+				put_frame(&fbuf,(char *)opt,SIZEOF_NEG_T(opt->streams));
+				exit(0);
+			}
 			break;
 
 		case ACK:
@@ -234,9 +265,6 @@ int configure_recv(int argc, char *argv[], conf_t *conf)
 			fprintf(stderr,"Cannot send: Client rejected configuration options without amendment.");
 			exit(0);
 		}
-
-		/* transmit reponse */
-		put_frame(&fbuf,(char *)opt,SIZEOF_NEG_T(opt->streams));
 	}
 
 	/* complete socket connections */
